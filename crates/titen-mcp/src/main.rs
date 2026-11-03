@@ -76,7 +76,7 @@ fn main() {
         let request: serde_json::Value = match serde_json::from_str(trimmed) {
             Ok(v) => v,
             Err(e) => {
-                let resp = json_rpc_error(0, &format!("Parse error: {e}"));
+                let resp = json_rpc_error_value(&json!(null), &format!("Parse error: {e}"), -32700);
                 let _ = writeln!(
                     stdout,
                     "{}",
@@ -87,44 +87,64 @@ fn main() {
             }
         };
 
+        // JSON-RPC notifications carry no "id" and must never get a response.
+        let is_notification = request.get("id").is_none();
         let id = request.get("id").cloned().unwrap_or(json!(null));
         let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
 
-        let result = match method {
+        let outcome: Result<serde_json::Value, (i64, String)> = match method {
             "initialize" => {
-                json!({
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": { "tools": {} },
+                // Echo the client's protocol version when we support it; otherwise
+                // answer with our latest and let the client decide.
+                let requested = request
+                    .pointer("/params/protocolVersion")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let version = SUPPORTED_PROTOCOLS
+                    .iter()
+                    .find(|v| **v == requested)
+                    .copied()
+                    .unwrap_or(SUPPORTED_PROTOCOLS[0]);
+                Ok(json!({
+                    "protocolVersion": version,
+                    "capabilities": { "tools": { "listChanged": false } },
                     "serverInfo": {
                         "name": "titen",
                         "version": env!("CARGO_PKG_VERSION")
-                    }
-                })
+                    },
+                    "instructions": SERVER_INSTRUCTIONS
+                }))
             }
-            "notifications/initialized" => {
-                // Ack notification, no response needed
-                json!(null)
-            }
-            "tools/list" => tools_list(),
-            "tools/call" => {
-                let tool_name = request
-                    .pointer("/params/name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown");
-                let arguments = request
-                    .pointer("/params/arguments")
-                    .cloned()
-                    .unwrap_or(json!({}));
-                handle_tool_call(&rt, &store, &threads_client, tool_name, arguments)
-            }
-            _ => json_rpc_error_value(&id, "Method not found", -32601),
+            "ping" => Ok(json!({})),
+            m if m.starts_with("notifications/") => Ok(json!(null)),
+            "tools/list" => Ok(tools_list()),
+            "tools/call" => match request.pointer("/params/name").and_then(|v| v.as_str()) {
+                None => Err((-32602, "Invalid params: missing tool name".to_string())),
+                Some(tool_name) => {
+                    let arguments = request
+                        .pointer("/params/arguments")
+                        .cloned()
+                        .unwrap_or(json!({}));
+                    Ok(handle_tool_call(
+                        &rt,
+                        &store,
+                        &threads_client,
+                        tool_name,
+                        arguments,
+                    ))
+                }
+            },
+            _ => Err((-32601, format!("Method not found: {method}"))),
         };
 
-        let response = json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": result
-        });
+        if is_notification {
+            continue;
+        }
+
+        let response = match outcome {
+            Ok(result) => json!({ "jsonrpc": "2.0", "id": id, "result": result }),
+            Err((code, msg)) => json_rpc_error_value(&id, &msg, code),
+        };
 
         let _ = writeln!(
             stdout,
@@ -135,7 +155,45 @@ fn main() {
     }
 }
 
+/// Protocol revisions this server speaks, newest first.
+const SUPPORTED_PROTOCOLS: &[&str] = &["2025-06-18", "2025-03-26", "2024-11-05"];
+
+const SERVER_INSTRUCTIONS: &str = "Titen manages Threads accounts. Call list_accounts first to get account_id values. \
+create_post publishes immediately and delete_post is irreversible; prefer schedule_post for review-first workflows \
+(approve_schedule / reject_schedule gate pending items). Threads captions are limited to 499 characters.";
+
+/// Tools that only read state.
+const READ_ONLY_TOOLS: &[&str] = &[
+    "list_accounts", "get_user_profile", "get_publishing_limit", "list_schedules",
+    "get_post_sentiment", "get_post_insights", "get_account_analytics", "list_posts",
+    "get_post", "get_schedule", "list_media", "list_mentions", "get_post_trend",
+];
+/// Tools that cannot be undone.
+const DESTRUCTIVE_TOOLS: &[&str] = &["delete_post", "cancel_schedule", "reject_schedule"];
+/// Tools that publish to Threads or otherwise leave the local system.
+const OPEN_WORLD_TOOLS: &[&str] = &[
+    "get_user_profile", "get_publishing_limit", "create_post", "refresh_token", "check_tokens",
+    "fetch_comments", "get_post_insights", "delete_post", "create_container", "publish_container",
+    "fetch_mentions", "search_keyword", "reply_to_comment", "upload_media", "exchange_oauth_code",
+];
+
 fn tools_list() -> serde_json::Value {
+    let mut list = tools_list_raw();
+    if let Some(tools) = list.get_mut("tools").and_then(|t| t.as_array_mut()) {
+        for t in tools {
+            let name = t.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string();
+            let read_only = READ_ONLY_TOOLS.contains(&name.as_str());
+            t["annotations"] = json!({
+                "readOnlyHint": read_only,
+                "destructiveHint": !read_only && DESTRUCTIVE_TOOLS.contains(&name.as_str()),
+                "openWorldHint": OPEN_WORLD_TOOLS.contains(&name.as_str()),
+            });
+        }
+    }
+    list
+}
+
+fn tools_list_raw() -> serde_json::Value {
     json!({
         "tools": [
             {
@@ -1495,6 +1553,7 @@ fn handle_tool_call(
     }
 }
 
+#[cfg(test)]
 fn json_rpc_error(id: i64, message: &str) -> serde_json::Value {
     json!({
         "jsonrpc": "2.0",
