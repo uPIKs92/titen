@@ -90,7 +90,7 @@
 	}
 </script>
 
-<div class="data-table-wrap">
+<div class="data-table-wrap plk-card">
 	{#if loading}
 		<Table.Root>
 			<Table.Header>
@@ -200,15 +200,15 @@
 	}
 
 	.row-clickable:hover {
-		background: var(--color-bg-hover, rgba(0, 0, 0, 0.03));
+		background: var(--muted);
 	}
 
 	.row-expanded {
-		background: var(--color-bg-hover, rgba(0, 0, 0, 0.04));
+		background: var(--muted);
 	}
 
 	:global(.row-detail td) {
-		background: var(--color-bg-subtle);
+		background: var(--muted);
 		border-top: none;
 	}
 

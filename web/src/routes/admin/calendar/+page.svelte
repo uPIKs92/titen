@@ -246,7 +246,7 @@
 		{/snippet}
 	</PageHeader>
 
-	<div class="toolbar">
+	<div class="page-toolbar toolbar">
 		<div class="nav-buttons" role="group" aria-label="Calendar navigation">
 			<Button variant="outline" size="sm" onclick={goPrev} aria-label="Previous" disabled={!anchorDate}>
 				<ChevronLeft class="size-4" />
@@ -257,8 +257,8 @@
 			</Button>
 		</div>
 
-		<div class="form-group">
-			<label class="form-label" for="calendar-account">Account</label>
+		<div class="plk-field">
+			<label class="plk-label" for="calendar-account">Account</label>
 			<Select.Root type="single" bind:value={filterAccountId}>
 				<Select.Trigger class="account-trigger" id="calendar-account">
 					{filterAccountId === 'all'
@@ -363,13 +363,14 @@
 	.calendar-page {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-md);
+		gap: var(--space-lg);
+		min-width: 0;
 	}
 
 	.range-label {
 		font-size: var(--text-sm);
 		font-weight: 600;
-		color: var(--color-ink);
+		color: var(--foreground);
 		white-space: nowrap;
 	}
 
@@ -386,7 +387,7 @@
 		gap: var(--space-3xs);
 	}
 
-	.toolbar .form-group {
+	.toolbar .plk-field {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3xs);
@@ -402,7 +403,7 @@
 
 	.toolbar-meta {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		align-self: center;
 		white-space: nowrap;
 	}
@@ -411,7 +412,7 @@
 	.calendar-scroll {
 		overflow-x: auto;
 		border: var(--rule-default);
-		border-radius: var(--radius-md);
+		border-radius: var(--plk-radius-md);
 		background: var(--rule-subtle); /* hairline gaps between cells */
 	}
 
@@ -433,10 +434,10 @@
 		padding: var(--space-3xs) var(--space-xs);
 		font-size: var(--text-xs);
 		font-weight: 600;
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		background: var(--surface-sunken);
+		background: var(--muted);
 	}
 
 	/* ── Day cells ── */
@@ -446,7 +447,7 @@
 		flex-direction: column;
 		gap: var(--space-3xs);
 		padding: var(--space-xs);
-		background: var(--surface-raised);
+		background: var(--card);
 		min-height: 7.5rem;
 	}
 
@@ -455,11 +456,11 @@
 	}
 
 	.month-cell.outside {
-		background: var(--surface-sunken);
+		background: var(--muted);
 	}
 
 	.month-cell.outside .day-num {
-		color: var(--color-neutral);
+		color: var(--muted-foreground);
 	}
 
 	.day-head,
@@ -473,7 +474,7 @@
 	.day-name {
 		font-size: var(--text-xs);
 		font-weight: 600;
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
@@ -487,13 +488,13 @@
 		border-radius: 999px;
 		font-size: var(--text-xs);
 		font-variant-numeric: tabular-nums;
-		color: var(--color-ink);
+		color: var(--foreground);
 	}
 
 	.day-cell.today .day-num,
 	.month-cell.today .day-num {
-		background: var(--color-accent);
-		color: var(--color-accent-ink);
+		background: var(--primary);
+		color: var(--primary-foreground);
 		font-weight: 700;
 	}
 
@@ -514,27 +515,27 @@
 		width: 100%;
 		padding: var(--space-3xs) var(--space-2xs);
 		text-align: left;
-		background: var(--surface-sunken);
+		background: var(--muted);
 		border: var(--rule-subtle);
-		border-radius: var(--radius-sm);
+		border-radius: var(--plk-radius-sm);
 		cursor: pointer;
 		transition: background var(--dur-short) var(--ease-out);
 	}
 
 	.cal-item:hover {
-		background: var(--color-paper-2);
+		background: var(--card);
 	}
 
 	.cal-time {
 		font-size: var(--text-xs);
-		font-family: var(--font-mono);
-		color: var(--color-muted);
+		font-family: var(--plk-font-mono);
+		color: var(--muted-foreground);
 		font-variant-numeric: tabular-nums;
 	}
 
 	.cal-caption {
 		font-size: var(--text-xs);
-		color: var(--color-ink);
+		color: var(--foreground);
 		overflow: hidden;
 		display: -webkit-box;
 		-webkit-line-clamp: 1;
@@ -555,7 +556,7 @@
 		gap: var(--space-2xs);
 		padding: var(--space-xs);
 		border: var(--rule-default);
-		border-radius: var(--radius-md);
+		border-radius: var(--plk-radius-md);
 	}
 
 	@media (max-width: 640px) {

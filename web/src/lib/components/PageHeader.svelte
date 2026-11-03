@@ -7,15 +7,15 @@
 	let { title, description, action }: Props = $props();
 </script>
 
-<div class="page-header">
-	<div>
-		<h1>{title}</h1>
+<div class="plk-page-header">
+	<div class="plk-page-header-text">
+		<h1 class="plk-page-title">{title}</h1>
 		{#if description}
-			<p class="page-header-desc">{description}</p>
+			<p class="plk-page-subtitle">{description}</p>
 		{/if}
 	</div>
 	{#if action}
-		<div class="page-header-action">
+		<div class="plk-page-actions">
 			{@render action()}
 		</div>
 	{/if}

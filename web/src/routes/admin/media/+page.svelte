@@ -177,7 +177,7 @@
 
 <!-- Drag-and-drop zone -->
 <div
-	class="dropzone mb-4"
+	class="dropzone"
 	class:dragging={isDragging}
 	ondrop={handleDrop}
 	ondragover={handleDragOver}
@@ -192,7 +192,7 @@
 	</p>
 </div>
 
-<div class="data-table-wrap">
+<div class="data-table-wrap plk-card">
 	{#if loading}
 		<Table.Root>
 			<Table.Header>
@@ -219,9 +219,9 @@
 			</Table.Body>
 		</Table.Root>
 	{:else if media.length === 0}
-		<div class="empty-state">
-			<p class="empty-state-title">No media files</p>
-			<p class="empty-state-desc">Upload images, videos, or other media to your S3 storage.</p>
+		<div class="plk-empty">
+			<p class="plk-empty-title">No media files</p>
+			<p class="plk-empty-text">Upload images, videos, or other media to your S3 storage.</p>
 		</div>
 	{:else}
 		<Table.Root>
@@ -394,22 +394,22 @@
 		justify-content: center;
 		gap: 0.25rem;
 		padding: 2rem;
-		border: 2px dashed hsl(var(--border));
+		border: 2px dashed var(--border);
 		border-radius: var(--radius, 0.5rem);
-		background: hsl(var(--muted) / 0.3);
+		background: color-mix(in oklch, var(--muted) 30%, transparent);
 		transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 		cursor: default;
 		outline: none;
 	}
 
 	.dropzone.dragging {
-		border-color: hsl(var(--primary));
-		background: hsl(var(--primary) / 0.05);
+		border-color: var(--primary);
+		background: color-mix(in oklch, var(--primary) 6%, transparent);
 		transform: scale(1.01);
 	}
 
 	.dropzone:focus-visible {
-		border-color: hsl(var(--ring));
-		box-shadow: 0 0 0 2px hsl(var(--ring) / 0.3);
+		border-color: var(--ring);
+		box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 30%, transparent);
 	}
 </style>

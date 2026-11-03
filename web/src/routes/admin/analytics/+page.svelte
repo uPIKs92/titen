@@ -120,38 +120,36 @@
 	loadAccounts();
 </script>
 
-<PageHeader title="Analytics" description="Post performance and engagement metrics">
-	{#snippet action()}
-		<div class="filter-bar">
-			<Select.Root type="single" bind:value={selectedAccountId}>
-				<Select.Trigger aria-label="Filter by account">
-					{selectedAccountId ? accounts.find((a) => a.id === selectedAccountId)?.username ?? 'Unknown' : 'All accounts'}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="" label="All accounts">All accounts</Select.Item>
-					{#each accounts as acct (acct.id)}
-						<Select.Item value={acct.id} label={acct.username}>
-							{acct.username}
-						</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-			<div class="period-toggle">
-				{#each periods as p}
-					<Button
-						variant="outline"
-						size="sm"
-						class="period-btn {selectedPeriod === p.value ? 'period-active' : ''}"
-						onclick={() => (selectedPeriod = p.value)}
-						type="button"
-					>
-						{p.label}
-					</Button>
-				{/each}
-			</div>
-		</div>
-	{/snippet}
-</PageHeader>
+<PageHeader title="Analytics" description="Post performance and engagement metrics" />
+
+<div class="page-toolbar">
+	<Select.Root type="single" bind:value={selectedAccountId}>
+		<Select.Trigger aria-label="Filter by account">
+			{selectedAccountId ? accounts.find((a) => a.id === selectedAccountId)?.username ?? 'Unknown' : 'All accounts'}
+		</Select.Trigger>
+		<Select.Content>
+			<Select.Item value="" label="All accounts">All accounts</Select.Item>
+			{#each accounts as acct (acct.id)}
+				<Select.Item value={acct.id} label={acct.username}>
+					{acct.username}
+				</Select.Item>
+			{/each}
+		</Select.Content>
+	</Select.Root>
+	<div class="period-toggle">
+		{#each periods as p}
+			<Button
+				variant="outline"
+				size="sm"
+				class="period-btn {selectedPeriod === p.value ? 'period-active' : ''}"
+				onclick={() => (selectedPeriod = p.value)}
+				type="button"
+			>
+				{p.label}
+			</Button>
+		{/each}
+	</div>
+</div>
 
 {#if error}
 	<div class="error-banner">
@@ -165,7 +163,7 @@
 
 <!-- Stat cards -->
 {#if loading}
-	<div class="stat-grid">
+	<div class="plk-kpi-grid">
 		<StatSkeleton />
 		<StatSkeleton />
 		<StatSkeleton />
@@ -174,30 +172,30 @@
 		<StatSkeleton />
 	</div>
 {:else if summaries.length > 0}
-	<div class="stat-grid">
-		<div class="stat-card">
-			<p class="stat-card-label">Posts</p>
-			<p class="stat-card-value">{totals ? fmt(totals.total_posts) : '—'}</p>
+	<div class="plk-kpi-grid">
+		<div class="plk-kpi">
+			<p class="plk-kpi-label">Posts</p>
+			<p class="plk-kpi-value">{totals ? fmt(totals.total_posts) : '—'}</p>
 		</div>
-		<div class="stat-card">
-			<p class="stat-card-label">Views</p>
-			<p class="stat-card-value">{totals ? fmt(totals.total_views) : '—'}</p>
+		<div class="plk-kpi">
+			<p class="plk-kpi-label">Views</p>
+			<p class="plk-kpi-value">{totals ? fmt(totals.total_views) : '—'}</p>
 		</div>
-		<div class="stat-card">
-			<p class="stat-card-label">Likes</p>
-			<p class="stat-card-value">{totals ? fmt(totals.total_likes) : '—'}</p>
+		<div class="plk-kpi">
+			<p class="plk-kpi-label">Likes</p>
+			<p class="plk-kpi-value">{totals ? fmt(totals.total_likes) : '—'}</p>
 		</div>
-		<div class="stat-card">
-			<p class="stat-card-label">Replies</p>
-			<p class="stat-card-value">{totals ? fmt(totals.total_replies) : '—'}</p>
+		<div class="plk-kpi">
+			<p class="plk-kpi-label">Replies</p>
+			<p class="plk-kpi-value">{totals ? fmt(totals.total_replies) : '—'}</p>
 		</div>
-		<div class="stat-card">
-			<p class="stat-card-label">Reposts</p>
-			<p class="stat-card-value">{totals ? fmt(totals.total_reposts) : '—'}</p>
+		<div class="plk-kpi">
+			<p class="plk-kpi-label">Reposts</p>
+			<p class="plk-kpi-value">{totals ? fmt(totals.total_reposts) : '—'}</p>
 		</div>
-		<div class="stat-card">
-			<p class="stat-card-label">Engagement rate</p>
-			<p class="stat-card-value">{totals ? fmtRate(totals.engagement_rate) : '—'}</p>
+		<div class="plk-kpi">
+			<p class="plk-kpi-label">Engagement rate</p>
+			<p class="plk-kpi-value">{totals ? fmtRate(totals.engagement_rate) : '—'}</p>
 		</div>
 	</div>
 {:else}
@@ -210,7 +208,7 @@
 <!-- Trend chart (single account only) -->
 {#if selectedAccountId && summaries.length > 0}
 	<section class="trend-section">
-		<h2 class="section-title">Engagement trend</h2>
+		<h2 class="section-heading">Engagement trend</h2>
 		{#if trendLoading}
 			<div class="trend-chart">
 				<div class="trend-loading">
@@ -254,7 +252,7 @@
 <!-- Per-account breakdown table -->
 {#if summaries.length > 0 && summaries.length > 1}
 	<section class="table-section">
-		<h2 class="section-title">Per-account breakdown</h2>
+		<h2 class="section-heading">Per-account breakdown</h2>
 		<DataTable
 			columns={[
 				{ key: 'account_id', label: 'Account ID', sortable: true, class: 'truncate' },
@@ -283,12 +281,6 @@
 
 <style>
 	/* ── Filter bar ── */
-	.filter-bar {
-		display: flex;
-		align-items: center;
-		gap: var(--space-sm);
-		flex-wrap: wrap;
-	}
 
 	.period-toggle {
 		display: flex;
@@ -301,22 +293,14 @@
 		align-items: center;
 		gap: var(--space-sm);
 		padding: var(--space-sm) var(--space-md);
-		background: var(--color-error-dim);
-		border: 1px solid var(--color-error);
-		border-radius: var(--radius-lg);
+		background: color-mix(in oklch, var(--destructive) 18%, transparent);
+		border: 1px solid var(--destructive);
+		border-radius: var(--plk-radius-lg);
 		margin-bottom: var(--space-lg);
 		font-size: var(--text-sm);
-		color: var(--color-error-ink);
+		color: var(--destructive-ink);
 	}
 
-	/* ── Section titles ── */
-	.section-title {
-		font-family: var(--font-display);
-		font-size: var(--text-md);
-		font-weight: 600;
-		letter-spacing: -0.02em;
-		margin-bottom: var(--space-md);
-	}
 
 	.table-section {
 		margin-top: var(--space-xl);
@@ -330,9 +314,9 @@
 	.trend-chart {
 		display: flex;
 		gap: var(--space-xs);
-		background: var(--surface-raised);
+		background: var(--card);
 		border: var(--rule-default);
-		border-radius: var(--radius-lg);
+		border-radius: var(--plk-radius-lg);
 		padding: var(--space-md);
 		overflow-x: auto;
 	}
@@ -343,9 +327,9 @@
 		justify-content: space-between;
 		align-items: flex-end;
 		min-width: 3rem;
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		padding-block: var(--space-2xs);
 	}
 
@@ -370,29 +354,29 @@
 
 	.trend-bar {
 		width: 100%;
-		border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+		border-radius: var(--plk-radius-sm) var(--plk-radius-sm) 0 0;
 		min-height: 0;
 		transition: height var(--dur-base) var(--ease-out);
 	}
 
 	.trend-bar--views {
-		background: var(--color-accent);
+		background: var(--primary);
 	}
 
 	.trend-bar--likes {
-		background: var(--color-success);
+		background: var(--success);
 	}
 
 	.trend-bar--replies {
-		background: var(--color-info);
+		background: var(--info);
 	}
 
 	.trend-bar-label {
 		position: absolute;
 		inset-block-end: -1.4rem;
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -402,7 +386,7 @@
 	.trend-loading {
 		flex: 1;
 		min-height: 12rem;
-		border-radius: var(--radius-sm);
+		border-radius: var(--plk-radius-sm);
 	}
 
 	.trend-legend {
@@ -416,7 +400,7 @@
 		align-items: center;
 		gap: var(--space-2xs);
 		font-size: var(--text-sm);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 	}
 
 	.legend-dot {
@@ -427,23 +411,19 @@
 	}
 
 	.legend-dot--views {
-		background: var(--color-accent);
+		background: var(--primary);
 	}
 
 	.legend-dot--likes {
-		background: var(--color-success);
+		background: var(--success);
 	}
 
 	.legend-dot--replies {
-		background: var(--color-info);
+		background: var(--info);
 	}
 
 	/* ── Responsive ── */
 	@media (max-width: 48rem) {
-		.filter-bar {
-			flex-direction: column;
-			align-items: stretch;
-		}
 
 		.trend-bar-group {
 			min-width: 1rem;

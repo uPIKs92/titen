@@ -95,10 +95,10 @@
 	}
 
 	const REPLY_STATUS_COLORS: Record<string, string> = {
-		new: 'badge--neutral',
-		needs_reply: 'badge--warning',
-		replied: 'badge--success',
-		skipped: 'badge--muted',
+		new: 'plk-badge--secondary',
+		needs_reply: 'plk-badge--warning',
+		replied: 'plk-badge--success',
+		skipped: 'plk-badge--secondary',
 	};
 
 	async function loadPosts() {
@@ -201,7 +201,7 @@
 <PageHeader title="Comments" description="Comment inbox with reply workflow & sentiment analysis" />
 
 {#if posts.length > 0}
-	<section class="toolbar" aria-label="Comment filters">
+	<section class="page-toolbar page-toolbar--panel toolbar" aria-label="Comment filters">
 		<div class="toolbar-post">
 			<div class="field field--grow">
 				<label class="field-label" for="comments-post">Post</label>
@@ -276,14 +276,14 @@
 			{/each}
 		</div>
 	{:else if comments.length === 0}
-		<div class="empty-state">
-			<p class="empty-state-title">No comments yet</p>
-			<p class="empty-state-desc">Choose a post above, then click “Fetch new comments” to pull them in.</p>
+		<div class="plk-empty">
+			<p class="plk-empty-title">No comments yet</p>
+			<p class="plk-empty-text">Choose a post above, then click “Fetch new comments” to pull them in.</p>
 		</div>
 	{:else if filteredComments.length === 0}
-		<div class="empty-state">
-			<p class="empty-state-title">No comments match your filters</p>
-			<p class="empty-state-desc">Try adjusting the filters above.</p>
+		<div class="plk-empty">
+			<p class="plk-empty-title">No comments match your filters</p>
+			<p class="plk-empty-text">Try adjusting the filters above.</p>
 		</div>
 	{:else}
 		{#each filteredComments as comment (comment.id)}
@@ -295,7 +295,7 @@
 					</div>
 					<div class="comment-badges">
 						<StatusBadge status={comment.sentiment ?? 'neutral'} />
-						<span class="badge {REPLY_STATUS_COLORS[comment.reply_status] ?? 'badge--neutral'}">
+						<span class="plk-badge {REPLY_STATUS_COLORS[comment.reply_status] ?? 'plk-badge--secondary'}">
 							{comment.reply_status.replace('_', ' ')}
 						</span>
 					</div>
@@ -384,11 +384,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-md);
-		padding: var(--space-md);
-		margin-bottom: var(--space-md);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		background: var(--color-surface);
 	}
 
 	.toolbar-post {
@@ -403,7 +398,7 @@
 		align-items: flex-end;
 		gap: var(--space-md) var(--space-lg);
 		padding-top: var(--space-md);
-		border-top: 1px solid var(--color-border);
+		border-top: 1px solid var(--border);
 	}
 
 	.field {
@@ -422,9 +417,9 @@
 	}
 
 	.field-label {
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
 	}
@@ -462,7 +457,7 @@
 
 	.post-opt-meta {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 	}
 
 	.chips {
@@ -480,7 +475,7 @@
 		border: var(--rule-default);
 		border-radius: 999px;
 		background: transparent;
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		font-size: var(--text-sm);
 		cursor: pointer;
 		transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
@@ -492,29 +487,29 @@
 
 	.chip--on {
 		color: inherit;
-		border-color: var(--color-accent);
-		background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+		border-color: var(--primary);
+		background: color-mix(in srgb, var(--primary) 12%, transparent);
 	}
 
 	.chip-count {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 	}
 
 	.results-line {
 		display: flex;
 		align-items: center;
 		gap: var(--space-sm);
-		margin-bottom: var(--space-sm);
+		
 		font-size: var(--text-sm);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 	}
 
 	.guide-link {
 		background: none;
 		border: none;
 		padding: 0;
-		color: var(--color-accent);
+		color: var(--primary-text);
 		text-decoration: underline;
 		cursor: pointer;
 		font-size: inherit;
@@ -549,10 +544,10 @@
 	}
 
 	.comment-card {
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		border: 1px solid var(--border);
+		border-radius: var(--plk-radius-md);
 		padding: var(--space-md);
-		background: var(--color-surface);
+		background: var(--card);
 		transition: border-color 0.15s ease;
 	}
 
@@ -584,7 +579,7 @@
 
 	.comment-date {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 	}
 
 	.comment-badges {
@@ -600,7 +595,7 @@
 
 	.comment-score {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 	}
 
 	.comment-reply-preview {
@@ -608,18 +603,18 @@
 		gap: var(--space-xs);
 		padding: var(--space-xs) var(--space-sm);
 		margin-top: var(--space-xs);
-		background: var(--color-bg);
-		border-radius: var(--radius-sm);
+		background: var(--background);
+		border-radius: var(--plk-radius-sm);
 		font-size: var(--text-sm);
 	}
 
 	.reply-label {
 		font-weight: 600;
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 	}
 
 	.reply-text {
-		color: var(--color-text);
+		color: var(--foreground);
 	}
 
 	.comment-actions {
@@ -638,13 +633,4 @@
 		margin-top: var(--space-xs);
 	}
 
-	.badge--warning {
-		background: var(--color-warning-bg);
-		color: var(--color-warning-text);
-	}
-
-	.badge--muted {
-		background: var(--color-muted-bg);
-		color: var(--color-muted);
-	}
 </style>

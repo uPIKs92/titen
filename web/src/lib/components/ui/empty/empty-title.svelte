@@ -13,7 +13,7 @@
 <div
 	bind:this={ref}
 	data-slot="empty-title"
-	class={cn("text-sm font-medium tracking-tight", className)}
+	class={cn("plk-empty-title", className)}
 	{...restProps}
 >
 	{@render children?.()}

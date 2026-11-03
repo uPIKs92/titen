@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { loginWithApiKey } from '$lib/api';
-	import { Button } from '$lib/components/ui/button';
 
 	let apiKey = $state('');
 	let error = $state('');
@@ -42,148 +41,67 @@
 	<title>Sign in — Titen</title>
 </svelte:head>
 
-<div class="login-container">
-	<div class="login-card">
-		<a href="/" class="login-wordmark">titen</a>
-		<h1 class="login-title">Sign in</h1>
-		<p class="login-desc">
-			Enter the API key configured on your Titen server
-			(<code>TITEN_API_KEY</code> environment variable).
-		</p>
+<div class="plk-backdrop" aria-hidden="true"></div>
 
-		<form class="login-form" onsubmit={handleSubmit}>
-			<div class="form-group">
-				<label class="form-label" for="apiKey">API Key</label>
-				<input
-					class="form-input"
-					id="apiKey"
-					type="password"
-					placeholder="titen_••••••••••••"
-					bind:value={apiKey}
-					autocomplete="off"
-					autocapitalize="off"
-					spellcheck="false"
-					disabled={loading}
-				/>
-				{#if error}
-					<span class="form-helper is-error">{error}</span>
-				{:else}
-					<span class="form-helper">Required to access the admin dashboard.</span>
-				{/if}
-			</div>
-
-			<Button variant="default" class="login-submit" type="submit" disabled={loading}>
-				{#if loading}
-					<span class="login-spinner"></span>
-					Verifying…
-				{:else}
-					Sign in
-				{/if}
-				</Button>
-		</form>
-
-		<div class="login-hint">
-			<span>Don't have a key?</span>
-			<a href="https://github.com/codecoradev/titen#configuration" target="_blank" rel="noopener noreferrer">
-				Read setup guide ↗
-			</a>
+<main class="plk-auth" id="auth">
+	<div class="plk-auth-column">
+		<div class="plk-auth-head">
+			<p class="plk-tag">Titen</p>
+			<h1 class="plk-auth-title">Sign in</h1>
+			<p class="plk-auth-lede">
+				Enter the API key configured on your Titen server
+				(<code>TITEN_API_KEY</code> environment variable).
+			</p>
 		</div>
+
+		<div class="plk-bezel">
+			<div class="plk-bezel-core">
+				<form class="plk-auth-body" onsubmit={handleSubmit} novalidate>
+					{#if error}
+						<div class="plk-alert plk-alert--destructive" role="alert">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
+							<div class="plk-alert-description">{error}</div>
+						</div>
+					{/if}
+					<div class="plk-field">
+						<label class="plk-label" for="apiKey">API Key</label>
+						<input
+							class="plk-input"
+							id="apiKey"
+							type="password"
+							placeholder="titen_••••••••••••"
+							bind:value={apiKey}
+							autocomplete="off"
+							autocapitalize="off"
+							spellcheck="false"
+							disabled={loading}
+							aria-invalid={error ? 'true' : undefined}
+						/>
+						<p class="login-help">Required to access the admin dashboard.</p>
+					</div>
+					<button class="plk-btn plk-btn--lg plk-btn--pill plk-auth-submit" type="submit" disabled={loading}>
+						{#if loading}
+							Verifying…
+						{:else}
+							Sign in
+							<span class="plk-btn-chip" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" /></svg></span>
+						{/if}
+					</button>
+				</form>
+			</div>
+		</div>
+
+		<p class="plk-auth-foot">
+			Don't have a key?
+			<a href="https://github.com/codecoradev/titen#configuration" target="_blank" rel="noopener noreferrer">Read setup guide ↗</a>
+		</p>
 	</div>
-</div>
+</main>
 
 <style>
-	.login-container {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100dvh;
-		padding: var(--space-lg);
-	}
-
-	.login-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-md);
-		padding: var(--space-2xl);
-		background: var(--surface-raised);
-		border: var(--rule-default);
-		border-radius: var(--radius-xl);
-		max-width: 26rem;
-		width: 100%;
-	}
-
-	.login-wordmark {
-		font-family: var(--font-mono);
-		font-size: var(--text-md);
-		font-weight: 500;
-		color: var(--color-ink);
-		text-decoration: none;
-		letter-spacing: -0.01em;
-	}
-
-	.login-title {
-		font-family: var(--font-display);
-		font-size: var(--text-xl);
-		font-weight: 600;
-		color: var(--color-ink);
-	}
-
-	.login-desc {
-		font-size: var(--text-sm);
-		color: var(--color-muted);
-		line-height: 1.6;
-	}
-
-	.login-desc code {
-		font-family: var(--font-mono);
+	.login-help {
+		margin: 0;
 		font-size: var(--text-xs);
-		background: var(--color-paper-2);
-		padding: var(--space-3xs) var(--space-2xs);
-		border-radius: var(--radius-sm);
-	}
-
-	.login-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-md);
-	}
-
-	.login-spinner {
-		width: 1rem;
-		height: 1rem;
-		border: 2px solid currentColor;
-		border-top-color: transparent;
-		border-radius: 50%;
-		animation: spin 0.7s linear infinite;
-		opacity: 0.8;
-	}
-
-	@keyframes spin {
-		to { transform: rotate(360deg); }
-	}
-
-	.login-hint {
-		display: flex;
-		align-items: center;
-		gap: var(--space-xs);
-		font-size: var(--text-xs);
-		color: var(--color-muted);
-		padding-top: var(--space-xs);
-		border-top: var(--rule-default);
-	}
-
-	.login-hint a {
-		color: var(--color-accent);
-		text-decoration: none;
-	}
-
-	.login-hint a:hover {
-		text-decoration: underline;
-	}
-
-	@media (max-width: 30rem) {
-		.login-card {
-			padding: var(--space-xl);
-		}
+		color: var(--muted-foreground);
 	}
 </style>

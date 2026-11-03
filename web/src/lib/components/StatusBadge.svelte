@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Badge } from "$lib/components/ui/badge";
 	import type { Snippet } from "svelte";
 
 	interface Props {
@@ -9,68 +8,34 @@
 
 	let { status, children }: Props = $props();
 
-	type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
+	type Tone = "success" | "warning" | "destructive" | "info" | "secondary";
 
-	function mapToVariant(s: string): { variant: BadgeVariant; class: string } {
-		const successVariants: Record<string, true> = {
-			active: true,
-			ok: true,
-			valid: true,
-			published: true,
-			completed: true,
-			positive: true,
-		};
-		const warningVariants: Record<string, true> = {
-			suspended: true,
-			expired: true,
-			pending: true,
-		};
-		const errorVariants: Record<string, true> = {
-			negative: true,
-			failed: true,
-		};
-		// Approved: same hue family as published but softer — it still awaits
-		// the scheduler, unlike a published post.
-		const approvedVariants: Record<string, true> = {
-			approved: true,
-		};
-		const infoVariants: Record<string, true> = {
-			processing: true,
-		};
-		const neutralVariants: Record<string, true> = {
-			draft: true,
-			cancelled: true,
-			deleted: true,
-		};
+	// Status → kit badge tone. Approved is soft success: it still awaits the scheduler.
+	const TONES: Record<string, Tone> = {
+		active: "success", ok: "success", valid: "success", published: "success",
+		completed: "success", positive: "success", approved: "success",
+		suspended: "warning", expired: "warning", pending: "warning",
+		negative: "destructive", failed: "destructive",
+		processing: "info",
+		draft: "secondary", cancelled: "secondary", deleted: "secondary",
+	};
 
-		if (successVariants[s]) {
-			return { variant: "default", class: "bg-[var(--color-success)] text-[var(--color-success-ink)]" };
-		}
-		if (approvedVariants[s]) {
-			return { variant: "secondary", class: "bg-[var(--color-success-dim)] text-[var(--color-success-ink)]" };
-		}
-		if (warningVariants[s]) {
-			return { variant: "default", class: "bg-[var(--color-warning)] text-[var(--color-warning-ink)]" };
-		}
-		if (errorVariants[s]) {
-			return { variant: "destructive", class: "" };
-		}
-		if (infoVariants[s]) {
-			return { variant: "secondary", class: "bg-[var(--color-info-dim)] text-[var(--color-info-ink)]" };
-		}
-		if (neutralVariants[s]) {
-			return { variant: "secondary", class: "" };
-		}
-		return { variant: "secondary", class: "" };
-	}
-
-	const mapped = $derived(mapToVariant(status));
+	const tone = $derived(TONES[status] ?? "secondary");
 </script>
 
-<Badge variant={mapped.variant} class={mapped.class}>
+<span class="plk-badge plk-badge--{tone} status-badge">
 	{#if children}
 		{@render children()}
 	{:else}
 		{status}
 	{/if}
-</Badge>
+</span>
+
+<style>
+	/* Same width for every status in lists and tables, so rows align. */
+	.status-badge {
+		min-width: 5.5rem;
+		justify-content: center;
+		text-transform: capitalize;
+	}
+</style>

@@ -209,7 +209,7 @@
 		<!-- Footer actions -->
 		<div class="detail-footer">
 			{#if schedule.status === 'draft'}
-				<Button variant="default" class="bg-[var(--color-success)]" onclick={handleApprove} disabled={acting}>
+				<Button variant="default" class="bg-[var(--success)]" onclick={handleApprove} disabled={acting}>
 					{acting ? '...' : 'Approve'}
 				</Button>
 				<Button variant="destructive" onclick={handleReject} disabled={acting}>
@@ -248,7 +248,7 @@
 
 	.detail-label {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		font-weight: 600;
@@ -260,8 +260,8 @@
 
 	.badge-muted {
 		padding: var(--space-3xs) var(--space-xs);
-		background: var(--color-paper-3);
-		border-radius: var(--radius-sm);
+		background: var(--muted);
+		border-radius: var(--plk-radius-sm);
 		font-size: var(--text-xs);
 		font-weight: 600;
 	}
@@ -283,9 +283,9 @@
 		line-height: 0;
 	}
 	.thumb-btn:focus-visible {
-		outline: 2px solid var(--color-primary);
+		outline: 2px solid var(--primary);
 		outline-offset: 2px;
-		border-radius: var(--radius-sm);
+		border-radius: var(--plk-radius-sm);
 	}
 
 	.detail-caption {
@@ -301,8 +301,8 @@
 		line-height: 1.6;
 		margin: 0;
 		padding: var(--space-sm);
-		background: var(--color-paper-2);
-		border-radius: var(--radius-sm);
+		background: var(--card);
+		border-radius: var(--plk-radius-sm);
 		white-space: pre-wrap;
 		word-break: break-word;
 	}
@@ -316,9 +316,9 @@
 
 	.media-thumb {
 		aspect-ratio: 1;
-		border-radius: var(--radius-sm);
+		border-radius: var(--plk-radius-sm);
 		overflow: hidden;
-		border: 1px solid var(--color-rule);
+		border: 1px solid var(--border);
 	}
 
 	.media-thumb img {
@@ -351,27 +351,27 @@
 		top: 1rem;
 		bottom: -0.5rem;
 		width: 2px;
-		background: var(--color-rule);
+		background: var(--border);
 	}
 
 	.timeline-dot {
 		width: 10px;
 		height: 10px;
 		border-radius: 50%;
-		border: 2px solid var(--color-rule);
-		background: var(--color-paper);
+		border: 2px solid var(--border);
+		background: var(--background);
 		flex-shrink: 0;
 		z-index: 1;
 	}
 
 	.timeline-dot.done {
-		background: var(--color-success);
-		border-color: var(--color-success);
+		background: var(--success);
+		border-color: var(--success);
 	}
 
 	.timeline-error .timeline-dot.done {
-		background: var(--color-error);
-		border-color: var(--color-error);
+		background: var(--destructive);
+		border-color: var(--destructive);
 	}
 
 	.timeline-label {
@@ -381,17 +381,17 @@
 
 	.timeline-date {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
-		font-family: var(--font-mono);
+		color: var(--muted-foreground);
+		font-family: var(--plk-font-mono);
 		margin-left: auto;
 	}
 
 	/* Error box */
 	.detail-error-box {
 		padding: var(--space-sm);
-		background: var(--color-error-dim);
-		border: 1px solid var(--color-error);
-		border-radius: var(--radius-sm);
+		background: color-mix(in oklch, var(--destructive) 18%, transparent);
+		border: 1px solid var(--destructive);
+		border-radius: var(--plk-radius-sm);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3xs);
@@ -399,9 +399,9 @@
 
 	.error-text {
 		font-size: var(--text-xs);
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		margin: 0;
-		color: var(--color-error);
+		color: var(--destructive-ink);
 		word-break: break-word;
 	}
 
@@ -414,23 +414,23 @@
 
 	.reject-input label {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		font-weight: 600;
 	}
 
 	.reject-input textarea {
 		width: 100%;
 		padding: var(--space-xs);
-		border: 1px solid var(--color-rule);
-		border-radius: var(--radius-sm);
-		background: var(--color-paper);
-		color: var(--color-ink);
+		border: 1px solid var(--border);
+		border-radius: var(--plk-radius-sm);
+		background: var(--background);
+		color: var(--foreground);
 		font-size: var(--text-sm);
 		resize: vertical;
 	}
 
 	.mono {
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		font-size: var(--text-xs);
 	}
 </style>

@@ -148,7 +148,7 @@
 <PageHeader title="Dashboard" />
 
 {#if loading}
-	<div class="stat-grid">
+	<div class="plk-kpi-grid">
 		<StatSkeleton />
 		<StatSkeleton />
 		<StatSkeleton />
@@ -156,33 +156,33 @@
 	</div>
 {:else}
 	<!-- Overview Stats -->
-	<div class="stat-grid">
-		<div class="stat-card">
-			<div class="stat-card-label">Active Accounts</div>
-			<div class="stat-card-value tabular-nums">{activeAccounts}</div>
+	<div class="plk-kpi-grid">
+		<div class="plk-kpi">
+			<div class="plk-kpi-label">Active Accounts</div>
+			<div class="plk-kpi-value tabular-nums">{activeAccounts}</div>
 		</div>
-		<div class="stat-card">
-			<div class="stat-card-label">Total Posts</div>
-			<div class="stat-card-value tabular-nums">{posts.length.toLocaleString()}</div>
+		<div class="plk-kpi">
+			<div class="plk-kpi-label">Total Posts</div>
+			<div class="plk-kpi-value tabular-nums">{posts.length.toLocaleString()}</div>
 		</div>
-		<div class="stat-card">
-			<div class="stat-card-label">Published</div>
-			<div class="stat-card-value tabular-nums">{publishedPosts.toLocaleString()}</div>
+		<div class="plk-kpi">
+			<div class="plk-kpi-label">Published</div>
+			<div class="plk-kpi-value tabular-nums">{publishedPosts.toLocaleString()}</div>
 		</div>
 		{#if draftSchedules > 0}
-			<div class="stat-card border-warning">
-				<div class="stat-card-label">Drafts (Needs Review)</div>
-				<div class="stat-card-value tabular-nums">{draftSchedules.toLocaleString()}</div>
+			<div class="plk-kpi border-warning">
+				<div class="plk-kpi-label">Drafts (Needs Review)</div>
+				<div class="plk-kpi-value tabular-nums">{draftSchedules.toLocaleString()}</div>
 			</div>
 		{/if}
-		<div class="stat-card">
-			<div class="stat-card-label">Approved (Pending)</div>
-			<div class="stat-card-value tabular-nums">{pendingSchedules.toLocaleString()}</div>
+		<div class="plk-kpi">
+			<div class="plk-kpi-label">Approved (Pending)</div>
+			<div class="plk-kpi-value tabular-nums">{pendingSchedules.toLocaleString()}</div>
 		</div>
 		{#if health}
-			<div class="stat-card">
-				<div class="stat-card-label">System Health</div>
-				<div class="stat-card-value pt-2xs">
+			<div class="plk-kpi">
+				<div class="plk-kpi-label">System Health</div>
+				<div class="plk-kpi-value pt-2xs">
 					<StatusBadge status={health.status} />
 				</div>
 			</div>
@@ -191,7 +191,7 @@
 
 	<!-- Per-Account Cards -->
 	{#if cards.length > 0}
-		<section class="dashboard-section">
+		<section class="page-section">
 			<h2 class="section-heading">Accounts</h2>
 			<div class="account-cards-grid">
 				{#each cards as card, i (card.account.id)}
@@ -221,7 +221,7 @@
 								<div class="account-status">
 									<StatusBadge status={card.account.is_active ? 'active' : 'inactive'} />
 									{#if card.account.expires_at && isTokenExpiring(card.account.expires_at)}
-										<span class="badge badge--warning">Token expiring</span>
+										<span class="plk-badge plk-badge--warning">Token expiring</span>
 									{/if}
 								</div>
 							</div>
@@ -304,12 +304,12 @@
 	<!-- Two-column: Recent posts + Upcoming schedules -->
 	<div class="dashboard-grid">
 		<!-- Recent posts -->
-		<section>
+		<section class="page-section">
 			<h2 class="section-heading">Recent Posts</h2>
-			<div class="data-table-wrap">
+			<div class="data-table-wrap plk-card compact-card">
 				{#if recentPosts.length === 0}
-					<div class="empty-state empty-compact">
-						<p class="empty-state-title text-sm">No posts yet</p>
+					<div class="plk-empty plk-empty--compact">
+						<p class="plk-empty-title text-sm">No posts yet</p>
 					</div>
 				{:else}
 					<ul class="compact-list">
@@ -330,12 +330,12 @@
 		</section>
 
 		<!-- Upcoming schedules -->
-		<section>
+		<section class="page-section">
 			<h2 class="section-heading">Upcoming</h2>
-			<div class="data-table-wrap">
+			<div class="data-table-wrap plk-card compact-card">
 				{#if upcoming.length === 0}
-					<div class="empty-state empty-compact">
-						<p class="empty-state-title text-sm">No upcoming schedules</p>
+					<div class="plk-empty plk-empty--compact">
+						<p class="plk-empty-title text-sm">No upcoming schedules</p>
 					</div>
 				{:else}
 					<ul class="compact-list">
@@ -360,13 +360,10 @@
 <style>
 	.dashboard-grid {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--space-lg);
 	}
 
-	.dashboard-section {
-		margin-bottom: var(--space-lg);
-	}
 
 	/* ── Account cards ── */
 	.account-cards-grid {
@@ -376,9 +373,9 @@
 	}
 
 	.account-card {
-		background: var(--color-bg);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		background: var(--background);
+		border: 1px solid var(--border);
+		border-radius: var(--plk-radius-md);
 		padding: var(--space-md);
 		display: flex;
 		flex-direction: column;
@@ -387,7 +384,7 @@
 	}
 
 	.account-card:hover {
-		border-color: var(--color-border-hover, var(--color-border));
+		border-color: var(--input);
 	}
 
 	.account-card-header {
@@ -415,14 +412,14 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: var(--color-bg-hover);
+		background: var(--muted);
 		font-size: var(--text-lg);
 		font-weight: 700;
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 	}
 
 	.avatar-skeleton {
-		background: var(--color-bg-hover);
+		background: var(--muted);
 		animation: pulse 1.5s ease-in-out infinite;
 	}
 
@@ -458,8 +455,8 @@
 		grid-template-columns: repeat(3, 1fr);
 		gap: var(--space-xs);
 		padding: var(--space-xs) 0;
-		border-top: 1px solid var(--color-border);
-		border-bottom: 1px solid var(--color-border);
+		border-top: 1px solid var(--border);
+		border-bottom: 1px solid var(--border);
 	}
 
 	.metric {
@@ -473,7 +470,7 @@
 
 	.metric-label {
 		font-size: var(--text-2xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
@@ -496,14 +493,14 @@
 		flex-direction: column;
 		gap: var(--space-3xs);
 		padding: var(--space-3xs) var(--space-xs);
-		background: var(--color-bg-hover);
-		border-radius: var(--radius-sm);
+		background: var(--muted);
+		border-radius: var(--plk-radius-sm);
 		min-width: 4.5rem;
 	}
 
 	.insight-mini-label {
 		font-size: var(--text-2xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		text-transform: capitalize;
 	}
 
@@ -515,7 +512,7 @@
 	/* ── Bio ── */
 	.account-bio {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		line-height: 1.4;
 		margin: 0;
 		display: -webkit-box;
@@ -526,12 +523,14 @@
 
 	/* ── Legacy ── */
 	.compact-list {
+		min-width: 0;
 		list-style: none;
 		padding: 0;
 		margin: 0;
 	}
 
 	.compact-row {
+		min-width: 0;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -550,6 +549,17 @@
 		font-size: var(--text-sm);
 	}
 
+	.compact-content :global(.truncate) {
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.compact-card {
+		overflow: hidden;
+	}
+
 	.compact-meta {
 		display: flex;
 		align-items: center;
@@ -558,17 +568,24 @@
 	}
 
 	.compact-date {
+		min-width: 5.5rem;
+		text-align: right;
 		font-size: var(--text-xs);
-		color: var(--color-muted);
-		font-family: var(--font-mono);
+		color: var(--muted-foreground);
+		font-family: var(--plk-font-mono);
 	}
 
 	@media (max-width: 30rem) {
 		.compact-row {
 			flex-direction: column;
-			align-items: flex-start;
+			align-items: stretch;
 			gap: var(--space-2xs);
 			padding: var(--space-xs) var(--space-sm);
+		}
+
+		.compact-content {
+			flex: none;
+			width: 100%;
 		}
 
 		.compact-meta {
@@ -579,7 +596,7 @@
 
 	@media (max-width: 48rem) {
 		.dashboard-grid {
-			grid-template-columns: 1fr !important;
+			grid-template-columns: minmax(0, 1fr) !important;
 		}
 	}
 </style>

@@ -1,0 +1,3 @@
+# Vendored theme-kit sources define the tokens; they are not app code.
+src/lib/plk/** — vendored piyuralabs-theme-kit 1.0.0-alpha.7, re-copy instead of editing
+static/plk-boot.js — vendored kit boot script

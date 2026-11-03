@@ -547,10 +547,10 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	</PageHeader>
 
 	<!-- Filters -->
-	<div class="filter-bar">
+	<div class="page-toolbar page-toolbar--panel filter-bar">
 		<div class="filter-top">
-				<div class="form-group filter-search">
-					<label class="form-label" for="filter-search">Search</label>
+				<div class="plk-field filter-search">
+					<label class="plk-label" for="filter-search">Search</label>
 					<Input
 						id="filter-search"
 						type="search"
@@ -594,8 +594,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 		</div>
 
 		<div class="filter-fields">
-			<div class="form-group">
-				<label class="form-label">Account</label>
+			<div class="plk-field">
+				<label class="plk-label">Account</label>
 				<Select.Root type="single" bind:value={filterAccountId}>
 					<Select.Trigger>
 						{filterAccountId ? accounts.find((a) => a.id === filterAccountId)?.username ?? 'Unknown' : 'All accounts'}
@@ -611,8 +611,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 				</Select.Root>
 			</div>
 
-			<div class="form-group">
-				<label class="form-label">Status</label>
+			<div class="plk-field">
+				<label class="plk-label">Status</label>
 				<Select.Root type="single" bind:value={filterStatus}>
 					<Select.Trigger>
 						{filterStatus === 'all' ? 'All' : filterStatus === 'draft' ? 'Draft (Needs Review)' : filterStatus === 'pending' ? 'Pending (Approved)' : filterStatus === 'processing' ? 'Processing' : filterStatus === 'published' ? 'Published' : filterStatus === 'failed' ? 'Failed' : filterStatus === 'rejected' ? 'Rejected' : 'All'}
@@ -629,8 +629,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 				</Select.Root>
 			</div>
 
-			<div class="form-group">
-				<label class="form-label">Media Type</label>
+			<div class="plk-field">
+				<label class="plk-label">Media Type</label>
 				<Select.Root type="single" bind:value={filterMediaType}>
 					<Select.Trigger>
 						{filterMediaType === 'all' ? 'All' : filterMediaType === 'TEXT' ? 'Text Only' : filterMediaType === 'IMAGE' ? 'Single Image' : 'Carousel'}
@@ -644,8 +644,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 				</Select.Root>
 			</div>
 
-				<div class="form-group">
-					<label class="form-label" for="filter-from">From</label>
+				<div class="plk-field">
+					<label class="plk-label" for="filter-from">From</label>
 					<Input
 						id="filter-from"
 						type="date"
@@ -653,8 +653,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 					/>
 				</div>
 
-				<div class="form-group">
-					<label class="form-label" for="filter-to">To</label>
+				<div class="plk-field">
+					<label class="plk-label" for="filter-to">To</label>
 					<Input
 						id="filter-to"
 						type="date"
@@ -752,7 +752,7 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 						<Button
 							variant="default"
 							size="sm"
-							class="bg-[var(--color-success)]"
+							class="bg-[var(--success)]"
 							onclick={() => requestApprove(s)}
 							disabled={approvingId === s.id}
 							aria-pressed={armedApproveId === s.id}
@@ -814,7 +814,7 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 									<Button
 										variant="default"
 										size="sm"
-										class="bg-[var(--color-success)]"
+										class="bg-[var(--success)]"
 										onclick={() => requestApprove(s)}
 										disabled={approvingId === s.id}
 										aria-pressed={armedApproveId === s.id}
@@ -870,8 +870,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 				{/if}
 			</p>
 			<div class="modal-stack">
-				<div class="form-group">
-					<label class="form-label">Account <span class="required">*</span></label>
+				<div class="plk-field">
+					<label class="plk-label">Account <span class="required">*</span></label>
 					<Select.Root type="single" bind:value={modalAccountId}>
 						<Select.Trigger>
 							{modalAccountId ? accounts.find((a) => a.id === modalAccountId)?.username ?? 'Unknown' : 'Select account...'}
@@ -887,19 +887,19 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 				</div>
 
 				<div class="form-row">
-					<div class="form-group flex-1">
-						<label class="form-label" for="modal-scheduled">Scheduled At <span class="required">*</span></label>
+					<div class="plk-field flex-1">
+						<label class="plk-label" for="modal-scheduled">Scheduled At <span class="required">*</span></label>
 						<Input
 							type="datetime-local"
 							id="modal-scheduled"
 							bind:value={modalScheduledAt}
 						disabled={modalPublishNow}
 					/>
-						<span class="form-helper">Times shown in {tzLabel}</span>
+						<span class="plk-field-hint">Times shown in {tzLabel}</span>
 					</div>
 
-					<div class="form-group flex-1">
-						<label class="form-label">Media Type</label>
+					<div class="plk-field flex-1">
+						<label class="plk-label">Media Type</label>
 						<Select.Root type="single" bind:value={modalMediaType}>
 							<Select.Trigger>
 								{modalMediaType === 'text' ? 'Text Only' : modalMediaType === 'IMAGE' ? 'Single Image' : modalMediaType === 'CAROUSEL' ? 'Carousel (2-20)' : 'Text Only'}
@@ -913,12 +913,12 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 					</div>
 				</div>
 
-				<div class="form-group">
+				<div class="plk-field">
 					<div class="flex items-center gap-2">
 						<Switch id="modal-publish-now" bind:checked={modalPublishNow} />
-						<label class="form-label" for="modal-publish-now">Publish now</label>
+						<label class="plk-label" for="modal-publish-now">Publish now</label>
 					</div>
-					<span class="form-helper">
+					<span class="plk-field-hint">
 						{#if modalPublishNow}
 							Goes straight to pending — scheduler publishes on the next tick.
 						{:else}
@@ -928,20 +928,20 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 				</div>
 
 				{#if modalMediaType === 'IMAGE'}
-					<div class="form-group">
-						<label class="form-label" for="modal-image-url">Image URL <span class="required">*</span></label>
+					<div class="plk-field">
+						<label class="plk-label" for="modal-image-url">Image URL <span class="required">*</span></label>
 						<Input
 							type="url"
 							id="modal-image-url"
 							bind:value={modalImageUrl}
 							placeholder="https://example.com/image.jpg"
 						/>
-						<span class="form-helper">Direct link to image (JPG, PNG)</span>
+						<span class="plk-field-hint">Direct link to image (JPG, PNG)</span>
 					</div>
 				{:else if modalMediaType === 'CAROUSEL'}
-					<div class="form-group">
-						<label class="form-label">Carousel Image URLs <span class="required">*</span></label>
-						<span class="form-helper">2–20 image URLs. Each becomes a carousel slide.</span>
+					<div class="plk-field">
+						<label class="plk-label">Carousel Image URLs <span class="required">*</span></label>
+						<span class="plk-field-hint">2–20 image URLs. Each becomes a carousel slide.</span>
 							{#each modalCarouselUrls as _, idx}
 								<div class="carousel-url-row">
 									<Input
@@ -973,8 +973,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 					</div>
 				{/if}
 
-				<div class="form-group">
-					<label class="form-label">
+				<div class="plk-field">
+					<label class="plk-label">
 						<label class="switch" style="display:inline-flex;align-items:center;gap:0.5rem;font-weight:normal;">
 							<Switch bind:checked={bundleMode} />
 							<span>Thread bundle mode (root + replies in one object)</span>
@@ -983,10 +983,10 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 				</div>
 
 				{#if bundleMode}
-					<div class="form-group">
-						<label class="form-label">Bundle items ({bundleItems.length})</label>
+					<div class="plk-field">
+						<label class="plk-label">Bundle items ({bundleItems.length})</label>
 						{#each bundleItems as item, idx}
-							<div class="bundle-item" style="border:1px solid var(--color-border);border-radius:6px;padding:0.75rem;margin-bottom:0.5rem;">
+							<div class="bundle-item" style="border:1px solid var(--border);border-radius:6px;padding:0.75rem;margin-bottom:0.5rem;">
 								<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
 									<strong style="font-size:0.85rem;">
 										{idx === 0 ? 'Root post' : `Reply → root post`}
@@ -1026,8 +1026,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 				{/if}
 
 				{#if !bundleMode}
-				<div class="form-group">
-					<label class="form-label" for="modal-caption">
+				<div class="plk-field">
+					<label class="plk-label" for="modal-caption">
 						Caption
 						<span class="char-count" class:over={modalCaption.length > 499}>
 							{modalCaption.length}/499
@@ -1068,18 +1068,18 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 				Status: <StatusBadge status={editTarget.status} />
 			</p>
 			<div class="modal-stack">
-				<div class="form-group">
-					<label class="form-label" for="edit-scheduled">Scheduled At</label>
+				<div class="plk-field">
+					<label class="plk-label" for="edit-scheduled">Scheduled At</label>
 					<Input
 						type="datetime-local"
 						id="edit-scheduled"
 						bind:value={editScheduledAt}
 					/>
-					<span class="form-helper">Times shown in {tzLabel}</span>
+					<span class="plk-field-hint">Times shown in {tzLabel}</span>
 				</div>
 
-				<div class="form-group">
-					<label class="form-label" for="edit-caption">
+				<div class="plk-field">
+					<label class="plk-label" for="edit-caption">
 						Caption
 						<span class="char-count" class:over={editCaption.length > 499}>
 							{editCaption.length}/499
@@ -1116,8 +1116,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 		<Dialog.Content class="confirm-dialog modal-narrow" style="max-width: 28rem;" aria-describedby={undefined}>
 			<Dialog.Title class="text-base font-semibold" style="font-size:var(--text-md)">Reject Schedule</Dialog.Title>
 			<div class="mb-md">
-				<div class="form-group">
-							<label class="form-label">Reason (optional)</label>
+				<div class="plk-field">
+							<label class="plk-label">Reason (optional)</label>
 							<Textarea
 								bind:value={rejectReason}
 								placeholder="Why is this schedule being rejected?"
@@ -1173,6 +1173,13 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 }} />
 
 <style>
+	.schedules-page {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+		min-width: 0;
+	}
+
 	.filter-bar {
 		display: flex;
 		flex-direction: column;
@@ -1201,7 +1208,7 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 		gap: var(--space-sm);
 	}
 
-	.filter-fields .form-group {
+	.filter-fields .plk-field {
 		min-width: 0;
 	}
 
@@ -1210,7 +1217,7 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 		align-self: flex-end;
 		padding-bottom: 0.45rem;
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		white-space: nowrap;
 	}
 
@@ -1238,12 +1245,12 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 		flex-direction: column;
 		gap: var(--space-sm, 0.5rem);
 		padding: var(--space-md, 1rem);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md, 8px);
-		background: var(--color-bg);
+		border: 1px solid var(--border);
+		border-radius: var(--plk-radius-md);
+		background: var(--background);
 	}
 	.sched-card.draft {
-		border-left: 3px solid var(--color-warning);
+		border-left: 3px solid var(--warning);
 	}
 	.sched-card-head {
 		display: flex;
@@ -1253,7 +1260,7 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	}
 	.sched-card-time {
 		font-size: 0.75rem;
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
@@ -1265,7 +1272,7 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	.sched-card-media img {
 		height: 64px;
 		width: 64px;
-		border-radius: var(--radius-sm, 6px);
+		border-radius: var(--plk-radius-sm);
 		object-fit: cover;
 	}
 	.sched-card-caption {
@@ -1292,8 +1299,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 		font-size: 0.75rem;
 		padding: 0.125rem 0.5rem;
 		border-radius: 999px;
-		background: var(--color-bg-subtle, rgba(0, 0, 0, 0.04));
-		color: var(--color-muted);
+		background: var(--muted);
+		color: var(--muted-foreground);
 	}
 	.sched-card-actions {
 		display: flex;
@@ -1302,7 +1309,7 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	}
 	.sched-card-error {
 		font-size: 0.75rem;
-		color: var(--color-error);
+		color: var(--destructive-ink);
 		overflow-wrap: anywhere;
 		margin: 0;
 	}
@@ -1312,7 +1319,7 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	.skel-line {
 		height: 0.75rem;
 		border-radius: 4px;
-		background: var(--color-bg-subtle, rgba(0, 0, 0, 0.06));
+		background: var(--muted);
 		animation: pulse 1.5s ease-in-out infinite;
 	}
 	@keyframes pulse {
@@ -1338,12 +1345,12 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	.detail-thumb {
 		height: 72px;
 		width: 72px;
-		border-radius: var(--radius-sm, 6px);
+		border-radius: var(--plk-radius-sm);
 		object-fit: cover;
 	}
 	.detail-error {
 		font-size: 0.8125rem;
-		color: var(--color-error);
+		color: var(--destructive-ink);
 		overflow-wrap: anywhere;
 	}
 	.detail-meta {
@@ -1358,14 +1365,14 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 		gap: 0.375rem;
 	}
 	.detail-meta dt {
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 	}
 	.detail-meta dd {
 		margin: 0;
 		font-variant-numeric: tabular-nums;
 	}
 
-	.filter-bar .form-group:first-child {
+	.filter-bar .plk-field:first-child {
 		flex: 1 1 16rem;
 	}
 
@@ -1431,12 +1438,12 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	}
 
 	.row-clickable:hover {
-		background: var(--color-bg-hover, rgba(0, 0, 0, 0.03));
+		background: var(--muted);
 	}
 
 	.badge-draft {
-		background: var(--color-warning-bg);
-		color: var(--color-warning-text);
+		background: color-mix(in oklch, var(--warning) 18%, transparent);
+		color: var(--warning-ink);
 		padding: 0.25rem 0.625rem;
 		border-radius: 9999px;
 		font-size: 0.75rem;
@@ -1445,7 +1452,7 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	}
 
 	.row-draft {
-		background: var(--color-warning-bg-subtle, rgba(254, 243, 199, 0.3));
+		background: color-mix(in oklch, var(--warning) 8%, transparent);
 	}
 
 	/* Modal utility classes */
@@ -1454,7 +1461,7 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	}
 
 	.modal-desc {
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		font-size: 0.85rem;
 		margin-bottom: var(--space-md);
 	}
@@ -1490,27 +1497,27 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 		line-height: 0;
 	}
 	.thumb-btn:focus-visible {
-		outline: 2px solid var(--color-primary);
+		outline: 2px solid var(--primary);
 		outline-offset: 2px;
-		border-radius: var(--radius-sm);
+		border-radius: var(--plk-radius-sm);
 	}
 
 	.row-thumb {
 		width: 2rem;
 		height: 2rem;
-		border-radius: var(--radius-sm);
+		border-radius: var(--plk-radius-sm);
 		object-fit: cover;
-		border: 1px solid var(--color-rule);
+		border: 1px solid var(--border);
 		flex-shrink: 0;
 	}
 
 	.thumb-more {
 		font-size: 0.625rem;
 		font-weight: 600;
-		color: var(--color-muted);
-		background: var(--color-paper-2);
+		color: var(--muted-foreground);
+		background: var(--card);
 		padding: 0.125rem 0.25rem;
-		border-radius: var(--radius-sm);
+		border-radius: var(--plk-radius-sm);
 		flex-shrink: 0;
 	}
 
@@ -1521,8 +1528,8 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	}
 	.tz-badge {
 		font-size: 0.75rem;
-		color: var(--color-muted);
-		background: var(--color-bg-elevated);
+		color: var(--muted-foreground);
+		background: var(--card);
 		padding: 0.25rem 0.625rem;
 		border-radius: 0.375rem;
 		white-space: nowrap;
@@ -1536,11 +1543,11 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 	.char-count {
 		margin-left: auto;
 		font-size: 0.75rem;
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		font-variant-numeric: tabular-nums;
 	}
 	.char-count.over {
-		color: var(--color-error);
+		color: var(--destructive-ink);
 		font-weight: 600;
 	}
 	.form-label:has(.char-count) {

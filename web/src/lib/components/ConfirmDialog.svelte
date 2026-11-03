@@ -37,7 +37,7 @@
 		{#if showInput}
 			<input
 				type="text"
-				class="confirm-input"
+				class="plk-input confirm-input"
 				placeholder="Type to confirm"
 				bind:value={confirmText}
 			/>
@@ -55,12 +55,5 @@
 </AlertDialog.Root>
 
 <style>
-	.confirm-input {
-		width: 100%;
-		margin-top: 0.75rem;
-		padding: 0.5rem 0.75rem;
-		border: 1px solid var(--border);
-		border-radius: 0.375rem;
-		font-size: 0.875rem;
-	}
+	.confirm-input { margin-top: 0.75rem; }
 </style>
