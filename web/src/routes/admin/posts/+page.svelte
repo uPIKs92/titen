@@ -4,7 +4,10 @@
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import PostDetail from '$lib/components/PostDetail.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
-	import { listPosts, deletePost, listAccounts } from '$lib/api';
+	import { listPosts, deletePost, listAccounts, createPost, ApiError } from '$lib/api';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import Textarea from '$lib/components/ui/textarea/textarea.svelte';
+	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
 	import { formatDateShort } from '$lib/tz';
@@ -18,6 +21,56 @@
 	let filterAccount = $state('');
 	let filterStatus = $state('');
 	let confirmDelete = $state<{ open: boolean; post: Post | null }>({ open: false, post: null });
+
+	// New post dialog
+	const CAPTION_MAX = 499;
+	let showNew = $state(false);
+	let publishing = $state(false);
+	let newAccountId = $state('');
+	let newType = $state<'TEXT' | 'IMAGE' | 'VIDEO'>('TEXT');
+	let newCaption = $state('');
+	let newMediaUrl = $state('');
+
+	const needsMedia = $derived(newType !== 'TEXT');
+	const canPublish = $derived(
+		!!newAccountId &&
+			newCaption.length <= CAPTION_MAX &&
+			(needsMedia ? newMediaUrl.trim().length > 0 : newCaption.trim().length > 0)
+	);
+
+	function openNew() {
+		newAccountId = filterAccount || accounts[0]?.id || '';
+		newType = 'TEXT';
+		newCaption = '';
+		newMediaUrl = '';
+		showNew = true;
+	}
+
+	async function submitNew() {
+		if (!canPublish || publishing) return;
+		publishing = true;
+		try {
+			const url = newMediaUrl.trim();
+			const post = await createPost({
+				account_id: newAccountId,
+				media_type: newType,
+				caption: newCaption.trim() || undefined,
+				image_url: newType === 'IMAGE' ? url : undefined,
+				video_url: newType === 'VIDEO' ? url : undefined,
+			});
+			toast('Post published', 'success');
+			posts = [post, ...posts];
+			showNew = false;
+		} catch (e) {
+			let msg = 'Publish failed';
+			if (e instanceof ApiError) {
+				try { msg = `Publish failed: ${JSON.parse(e.body).error ?? e.statusText}`; } catch { msg = `Publish failed: ${e.statusText || e.status}`; }
+			}
+			toast(msg, 'error');
+		} finally {
+			publishing = false;
+		}
+	}
 
 	// Detail modal
 	let detailPost = $state<Post | null>(null);
@@ -118,9 +171,52 @@
 					<Select.Item value="deleted" label="Deleted">Deleted</Select.Item>
 				</Select.Content>
 			</Select.Root>
+			<Button variant="default" onclick={openNew} disabled={accounts.length === 0} title={accounts.length === 0 ? 'Add an account first' : undefined}>New Post</Button>
 		</div>
 	{/snippet}
 </PageHeader>
+
+{#if showNew}
+	<Dialog.Root open onOpenChange={(o) => { if (!o && !publishing) showNew = false; }}>
+		<Dialog.Content class="confirm-dialog" style="max-width:32rem;" aria-describedby={undefined}>
+			<Dialog.Title class="text-base font-semibold mb-xs">New Post</Dialog.Title>
+			<p class="text-hint mb-sm">Publishes to Threads immediately. To post later, use Schedules.</p>
+			<form onsubmit={(e) => { e.preventDefault(); submitNew(); }}>
+				<div class="form-group mb-sm">
+					<label class="form-label" for="np_account">Account</label>
+					<select id="np_account" class="form-select" bind:value={newAccountId} disabled={publishing}>
+						{#each accounts as a (a.id)}
+							<option value={a.id}>@{a.username}</option>
+						{/each}
+					</select>
+				</div>
+				<div class="form-group mb-sm">
+					<label class="form-label" for="np_type">Type</label>
+					<select id="np_type" class="form-select" bind:value={newType} disabled={publishing}>
+						<option value="TEXT">Text</option>
+						<option value="IMAGE">Image</option>
+						<option value="VIDEO">Video</option>
+					</select>
+				</div>
+				{#if needsMedia}
+					<div class="form-group mb-sm">
+						<label class="form-label" for="np_media">{newType === 'IMAGE' ? 'Image' : 'Video'} URL</label>
+						<Input id="np_media" type="url" bind:value={newMediaUrl} placeholder="https://… (publicly reachable)" disabled={publishing} />
+					</div>
+				{/if}
+				<div class="form-group mb-sm">
+					<label class="form-label" for="np_caption">Caption</label>
+					<Textarea id="np_caption" rows={5} bind:value={newCaption} disabled={publishing} />
+					<p class="text-hint" style:color={newCaption.length > CAPTION_MAX ? 'var(--color-error)' : undefined}>{newCaption.length}/{CAPTION_MAX}</p>
+				</div>
+				<div class="confirm-actions">
+					<Button type="button" variant="ghost" size="sm" onclick={() => (showNew = false)} disabled={publishing}>Cancel</Button>
+					<Button type="submit" size="sm" disabled={!canPublish || publishing}>{publishing ? 'Publishing…' : 'Publish now'}</Button>
+				</div>
+			</form>
+		</Dialog.Content>
+	</Dialog.Root>
+{/if}
 
 <div class="data-table-wrap">
 	<DataTable {columns} rows={filtered} {loading} emptyTitle="No posts yet" emptyDesc="Posts will appear here once you publish content." onrowclick={openDetail}>
