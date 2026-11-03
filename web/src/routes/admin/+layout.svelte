@@ -16,7 +16,7 @@ import Clock from '@lucide/svelte/icons/clock';
 	import '../../app.css';
 	import { getToasts } from '$lib/toast.svelte';
 	import { page } from '$app/state';
-	import { checkSession, logout } from '$lib/api';
+	import { verifySession, logout, hasSessionHint, SessionUnreachableError } from '$lib/api';
 	import { fetchTimezone, getTimezone } from '$lib/tz';
 	import { goto } from '$app/navigation';
 
@@ -41,27 +41,43 @@ import Clock from '@lucide/svelte/icons/clock';
 		};
 	});
 
-	$effect(() => {
-		if (authed) return;
-		(async () => {
-			try {
-				const session = await checkSession();
-				if (session.authenticated) {
-					authed = true;
-					appVersion = session.version ?? '';
-					tzLabel = (await fetchTimezone()) || getTimezone() || '';
-				} else {
-					// Not authenticated — redirect to login
-					const currentPath = page.url.pathname + page.url.search;
-					goto(`/login?redirect=${encodeURIComponent(currentPath)}`);
-				}
-			} catch {
-				// Network error — redirect to login as safe fallback
+	// Session verification. With a recent-sign-in hint the shell renders at once
+	// and is verified in the background; a slow/unreachable server shows a
+	// retry banner instead of blocking or bouncing to the login page.
+	let optimistic = $state(false);
+	let checking = $state(true);
+	let unreachable = $state('');
+	let started = false;
+
+	async function verify() {
+		checking = true;
+		unreachable = '';
+		try {
+			const session = await verifySession();
+			if (session.authenticated) {
+				authed = true;
+				appVersion = session.version ?? '';
+				tzLabel = (await fetchTimezone().catch(() => '')) || getTimezone() || '';
+			} else {
+				optimistic = false;
 				const currentPath = page.url.pathname + page.url.search;
 				goto(`/login?redirect=${encodeURIComponent(currentPath)}`);
 			}
-		})();
+		} catch (e) {
+			unreachable = e instanceof SessionUnreachableError ? e.message : 'Could not reach the server';
+		} finally {
+			checking = false;
+		}
+	}
+
+	$effect(() => {
+		if (started) return;
+		started = true;
+		optimistic = hasSessionHint();
+		verify();
 	});
+
+	const showShell = $derived(authed || optimistic);
 
 	async function handleLogout() {
 		await logout();
@@ -160,10 +176,21 @@ import Clock from '@lucide/svelte/icons/clock';
 	<!-- Main content -->
 	<div class="admin-main">
 		<main class="admin-content">
-			{#if authed}
+			{#if showShell}
+				{#if unreachable}
+					<div class="conn-banner" role="alert" data-testid="session-banner">
+						<span>Can’t confirm your session — {unreachable}. Showing the last known view.</span>
+						<button type="button" class="conn-retry" onclick={verify} disabled={checking}>{checking ? 'Retrying…' : 'Retry'}</button>
+					</div>
+				{/if}
 				{@render children()}
+			{:else if unreachable}
+				<div class="auth-loading auth-loading--error" role="alert" data-testid="session-error">
+					<p>Can’t reach the server — {unreachable}.</p>
+					<button type="button" class="conn-retry" onclick={verify} disabled={checking}>{checking ? 'Retrying…' : 'Retry'}</button>
+				</div>
 			{:else}
-				<div class="auth-loading">Verifying session…</div>
+				<div class="auth-loading" role="status">Verifying session…</div>
 			{/if}
 		</main>
 	</div>
@@ -281,6 +308,31 @@ import Clock from '@lucide/svelte/icons/clock';
 		color: var(--color-muted);
 		font-family: var(--font-mono);
 	}
+
+	.auth-loading--error { flex-direction: column; gap: var(--space-sm); text-align: center; }
+	.conn-banner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-sm);
+		flex-wrap: wrap;
+		margin-bottom: var(--space-md);
+		padding: var(--space-xs) var(--space-md);
+		border: 1px solid var(--color-warning);
+		border-radius: var(--radius-md);
+		background: var(--color-warning-dim, transparent);
+		font-size: var(--text-sm);
+	}
+	.conn-retry {
+		min-height: 2rem;
+		padding: 0.25rem 0.9rem;
+		border: var(--rule-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-raised);
+		color: inherit;
+		cursor: pointer;
+	}
+	.conn-retry:disabled { opacity: 0.6; cursor: default; }
 
 	.auth-loading {
 		display: flex;

@@ -562,14 +562,89 @@ export const oauthExchange = (data: {
 	});
 
 // ── Auth (session/cookie-based) ──
+// A non-secret "signed in recently" hint lets the admin shell render immediately
+// while the session is re-verified in the background (see admin/+layout.svelte).
+// The server remains the only authority; the hint is never trusted for access.
+const SESSION_HINT_KEY = 'titen_session_hint';
+const SESSION_HINT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // matches the 7-day server session
+
+export function hasSessionHint(): boolean {
+	try {
+		const at = Number(localStorage.getItem(SESSION_HINT_KEY));
+		return at > 0 && Date.now() - at < SESSION_HINT_TTL_MS;
+	} catch {
+		return false;
+	}
+}
+export function setSessionHint(): void {
+	try {
+		localStorage.setItem(SESSION_HINT_KEY, String(Date.now()));
+	} catch {
+		/* storage unavailable — fall back to the normal blocking check */
+	}
+}
+export function clearSessionHint(): void {
+	try {
+		localStorage.removeItem(SESSION_HINT_KEY);
+	} catch {
+		/* ignore */
+	}
+}
+
 export async function loginWithApiKey(apiKey: string): Promise<{ valid: boolean }> {
-	return await request<{ valid: boolean }>('/auth/login', {
+	const r = await request<{ valid: boolean }>('/auth/login', {
 		method: 'POST',
 		body: JSON.stringify({ api_key: apiKey }),
 	});
+	if (r.valid) setSessionHint();
+	return r;
 }
 
-export async function checkSession(): Promise<{ requires_auth: boolean; authenticated: boolean; version?: string }> {
+export interface SessionInfo {
+	requires_auth: boolean;
+	authenticated: boolean;
+	version?: string;
+}
+
+/** Thrown by verifySession when the server can't be reached in time. */
+export class SessionUnreachableError extends Error {
+	constructor(message = 'Server unreachable') {
+		super(message);
+	}
+}
+
+/**
+ * Check the session with a timeout. Unlike checkSession(), a slow or
+ * unreachable server is reported as SessionUnreachableError instead of being
+ * mistaken for "signed out".
+ */
+export async function verifySession(timeoutMs = 8000): Promise<SessionInfo> {
+	const ctrl = new AbortController();
+	const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+	try {
+		const res = await fetch(`${BASE}/auth/session`, { credentials: 'same-origin', signal: ctrl.signal });
+		if (res.status >= 500) throw new SessionUnreachableError(`Server error (${res.status})`);
+		if (res.status === 401 || res.status === 403) {
+			clearSessionHint();
+			return { requires_auth: true, authenticated: false };
+		}
+		if (!res.ok) throw new SessionUnreachableError(`Unexpected response (${res.status})`);
+		const json = await res.json();
+		const info = (json.data ?? json) as SessionInfo;
+		if (info.authenticated) setSessionHint();
+		else clearSessionHint();
+		return info;
+	} catch (e) {
+		if (e instanceof SessionUnreachableError) throw e;
+		throw new SessionUnreachableError(
+			e instanceof DOMException && e.name === 'AbortError' ? 'The server took too long to respond' : 'Could not reach the server'
+		);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+export async function checkSession(): Promise<SessionInfo> {
 	try {
 		return await request<{ requires_auth: boolean; authenticated: boolean; version: string }>('/auth/session');
 	} catch {
@@ -583,6 +658,8 @@ export async function logout(): Promise<void> {
 		await request<void>('/auth/logout', { method: 'POST' });
 	} catch {
 		// ignore — cookie may already be expired
+	} finally {
+		clearSessionHint();
 	}
 }
 
