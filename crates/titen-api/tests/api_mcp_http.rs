@@ -99,3 +99,65 @@ async fn batch_and_tool_call_use_the_shared_store() {
     let j = body_to_json(send(rpc(json!([])), &app).await).await;
     assert_eq!(j["error"]["code"], -32600);
 }
+
+async fn create_post_err(app: &axum::Router, args: Value) -> String {
+    let j = body_to_json(
+        send(
+            rpc(json!({"jsonrpc":"2.0","id":1,"method":"tools/call",
+                "params":{"name":"create_post","arguments":args}})),
+            app,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(j["result"]["isError"], true, "{j}");
+    j["result"]["content"][0]["text"].as_str().unwrap().to_string()
+}
+
+#[tokio::test]
+async fn create_post_validates_before_publishing() {
+    let (app, pool) = app().await;
+    let account = create_test_account(&app, &pool).await;
+    let id = account["id"].as_str().unwrap();
+
+    // Unknown account -> clear code, not a FK error.
+    let t = create_post_err(&app, json!({"account_id":"nope","caption":"hi"})).await;
+    assert!(t.contains("ACCOUNT_NOT_FOUND"), "{t}");
+
+    // TEXT needs a caption.
+    let t = create_post_err(&app, json!({"account_id":id})).await;
+    assert!(t.contains("EMPTY_POST"), "{t}");
+
+    // Caption limit.
+    let t = create_post_err(&app, json!({"account_id":id,"caption":"x".repeat(500)})).await;
+    assert!(t.contains("CAPTION_TOO_LONG"), "{t}");
+
+    // IMAGE / VIDEO need a public https URL; internal hosts are blocked (SSRF).
+    let t = create_post_err(&app, json!({"account_id":id,"media_type":"IMAGE"})).await;
+    assert!(t.contains("INVALID_MEDIA_URL"), "{t}");
+    let t = create_post_err(&app, json!({"account_id":id,"media_type":"image","image_url":"http://example.com/a.png"})).await;
+    assert!(t.contains("INVALID_MEDIA_URL") && t.contains("HTTPS"), "{t}");
+    let t = create_post_err(&app, json!({"account_id":id,"media_type":"VIDEO","video_url":"https://127.0.0.1/v.mp4"})).await;
+    assert!(t.contains("INVALID_MEDIA_URL") && t.contains("nternal"), "{t}");
+
+    // CAROUSEL needs 2-20 images.
+    let t = create_post_err(&app, json!({"account_id":id,"media_type":"CAROUSEL","image_urls":["https://example.com/a.png"]})).await;
+    assert!(t.contains("INVALID_CAROUSEL_COUNT"), "{t}");
+
+    // Unknown type.
+    let t = create_post_err(&app, json!({"account_id":id,"media_type":"GIF","caption":"x"})).await;
+    assert!(t.contains("UNSUPPORTED_MEDIA_TYPE"), "{t}");
+}
+
+#[tokio::test]
+async fn create_post_schema_advertises_all_media_types() {
+    let (app, _) = app().await;
+    let j = body_to_json(send(rpc(json!({"jsonrpc":"2.0","id":1,"method":"tools/list"})), &app).await).await;
+    let t = j["result"]["tools"].as_array().unwrap().iter().find(|t| t["name"] == "create_post").unwrap();
+    let props = &t["inputSchema"]["properties"];
+    assert_eq!(props["media_type"]["enum"], json!(["TEXT","IMAGE","VIDEO","CAROUSEL"]));
+    for k in ["video_url","image_urls","media_ids","reply_to_id"] {
+        assert!(props.get(k).is_some(), "missing {k}");
+    }
+    assert_eq!(t["inputSchema"]["required"], json!(["account_id"]));
+}

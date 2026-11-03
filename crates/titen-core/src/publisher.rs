@@ -91,14 +91,87 @@ pub fn validate(req: &PublishRequest) -> Result<()> {
     Ok(())
 }
 
-/// SSRF / scheme validation shared with the API layer (#P3.8 rules).
+/// SSRF / scheme validation shared by the API, MCP and scheduler (#P3.8 rules):
+/// HTTPS only, no internal/private hosts.
 pub fn validate_media_url(url: &str) -> Result<()> {
-    if !url.starts_with("https://") {
-        return Err(TitenError::InvalidRequest(format!(
-            "media URL must be https, got: {url}"
-        )));
+    validate_media_url_strict(url).map_err(TitenError::InvalidRequest)
+}
+
+/// Validate that a URL is HTTPS and well-formed.
+/// Meta Threads API requires HTTPS for all media URLs.
+fn validate_media_url_strict(url: &str) -> std::result::Result<(), String> {
+    let parsed = url::Url::parse(url).map_err(|e| format!("Invalid URL: {e}"))?;
+    if parsed.scheme() != "https" {
+        return Err(format!(
+            "Media URL must use HTTPS, got '{}'",
+            parsed.scheme()
+        ));
+    }
+    let host = parsed.host_str().ok_or("URL missing host")?;
+    if host.is_empty() {
+        return Err("URL host is empty".to_string());
+    }
+
+    // Block internal/private addresses to prevent SSRF.
+    // Handles hostname, IPv4 (including decimal/octal/hex encoding), and IPv6.
+    let is_internal = is_internal_host(host);
+
+    if is_internal {
+        return Err("Internal addresses are not allowed for media URLs".to_string());
     }
     Ok(())
+}
+
+/// Check if a host string resolves to or represents an internal/private address.
+/// Handles: hostnames, IPv4 literals (decimal/octal/hex), IPv6 literals, and bracketed IPv6.
+fn is_internal_host(host: &str) -> bool {
+    // Strip brackets from IPv6 format [::1]
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+
+    // Common internal hostnames
+    if host == "localhost" || host.is_empty() {
+        return true;
+    }
+
+    // Try parsing as IP address — handles decimal (2130706433), octal (0177.0.0.1),
+    // hex (0x7f000001), and standard IPv4/IPv6 formats.
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        return is_internal_ip(&ip);
+    }
+
+    // Check raw string for private IPv4 ranges (for non-standard formats that std::net doesn't parse)
+    host == "0.0.0.0"
+        || host.starts_with("10.")
+        || host.starts_with("192.168.")
+        || (host.starts_with("172.") && {
+            if let Some(second) = host.split('.').nth(1) {
+                second.parse::<u8>().is_ok_and(|n| (16..=31).contains(&n))
+            } else {
+                false
+            }
+        })
+        || host.starts_with("169.254.")
+        || host.starts_with("127.")
+}
+
+/// Check if an IP address is internal/private/loopback.
+fn is_internal_ip(ip: &std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(v4) => {
+            v4.is_loopback()
+                || v4.is_private()
+                || v4.is_link_local()
+                || v4.is_unspecified()
+                || v4.is_broadcast()
+        }
+        std::net::IpAddr::V6(v6) => {
+            v6.is_loopback() || v6.is_unspecified() || {
+                // Check for IPv4-mapped IPv6 (::ffff:a.b.c.d)
+                v6.to_ipv4()
+                    .is_some_and(|v4| v4.is_loopback() || v4.is_private() || v4.is_link_local())
+            }
+        }
+    }
 }
 
 /// Publish exactly one post (or reply) through the shared client.
@@ -183,4 +256,144 @@ pub async fn publish(
             "Unsupported media type: {other}"
         ))),
     }
+}
+
+// ─── Create + publish (shared by POST /api/posts and the MCP create_post tool) ───
+
+/// Why [`create_and_publish`] failed, in transport-neutral form.
+/// `status` is the HTTP status the API maps it to; `code` is a stable machine code.
+#[derive(Debug, Clone)]
+pub struct PostFailure {
+    pub status: u16,
+    pub code: &'static str,
+    pub message: String,
+}
+
+impl PostFailure {
+    fn new(status: u16, code: &'static str, message: impl Into<String>) -> Self {
+        Self { status, code, message: message.into() }
+    }
+}
+
+impl std::fmt::Display for PostFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ({})", self.message, self.code)
+    }
+}
+
+/// Publish a post to Threads right now and record it.
+///
+/// Handles TEXT / IMAGE / VIDEO / CAROUSEL (incl. `media_ids` from the media
+/// library), replies (`reply_to_id`), caption limits, SSRF-safe media URLs and
+/// per-account rate limiting.
+pub async fn create_and_publish(
+    store: &crate::Store,
+    client: &ThreadsClient,
+    input: crate::models::CreatePost,
+) -> std::result::Result<crate::models::Post, PostFailure> {
+    // #136: Threads accepts at most 500 chars; keep one in reserve.
+    if let Some(ref c) = input.caption {
+        let n = c.chars().count();
+        if n > 499 {
+            return Err(PostFailure::new(
+                400,
+                "CAPTION_TOO_LONG",
+                format!("Caption exceeds the 499-character limit (got {n}; Threads accepts at most 500)"),
+            ));
+        }
+    }
+
+    let account = store
+        .get_account(&input.account_id)
+        .await
+        .map_err(|e| PostFailure::new(404, "ACCOUNT_NOT_FOUND", e.to_string()))?;
+
+    store
+        .check_rate_limit(&input.account_id, "post", 250)
+        .await
+        .map_err(|e| PostFailure::new(429, "RATE_LIMITED", e.to_string()))?;
+
+    // Resolve media-library IDs → URLs (replaces image_urls; implies CAROUSEL).
+    let mut input = input;
+    if let Some(ids) = input.media_ids.clone().filter(|v| !v.is_empty()) {
+        let mut urls = Vec::with_capacity(ids.len());
+        for mid in &ids {
+            let asset = store.get_media_asset(mid).await.map_err(|e| {
+                PostFailure::new(400, "MEDIA_NOT_FOUND", format!("Media asset {mid} not found: {e}"))
+            })?;
+            let url = asset.s3_url.ok_or_else(|| {
+                PostFailure::new(400, "MEDIA_NO_URL", format!("Media asset {mid} has no S3 URL"))
+            })?;
+            urls.push(url);
+        }
+        input.image_urls = Some(urls);
+        if input.media_type.is_none() {
+            input.media_type = Some("CAROUSEL".to_string());
+        }
+    }
+
+    let media_type = input.media_type.clone().unwrap_or_else(|| "TEXT".to_string());
+
+    // Per-type media selection so a stray field can never feed the wrong container.
+    let media_urls: Vec<String> = match media_type.as_str() {
+        "IMAGE" => input.image_url.clone().into_iter().collect(),
+        "VIDEO" => input.video_url.clone().into_iter().collect(),
+        "CAROUSEL" => input.image_urls.clone().unwrap_or_default(),
+        _ => Vec::new(),
+    };
+
+    let reply_to_id = input
+        .reply_to_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+
+    let req = PublishRequest {
+        media_type,
+        caption: input.caption.clone(),
+        media_urls,
+        alt_text: input.alt_text.clone(),
+        location_id: None,
+        reply_to_id,
+    };
+
+    // Reject bad input before touching Threads.
+    if req.media_type == "TEXT" && req.caption.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        return Err(PostFailure::new(400, "EMPTY_POST", "TEXT posts require a non-empty caption"));
+    }
+    if let Err(e) = validate(&req) {
+        let code = if req.media_type == "CAROUSEL" && req.media_urls.len() < 2 {
+            "INVALID_CAROUSEL_COUNT"
+        } else {
+            "INVALID_MEDIA_URL"
+        };
+        let code = if matches!(e, TitenError::InvalidRequest(ref m) if m.contains("Unsupported media type")) {
+            "UNSUPPORTED_MEDIA_TYPE"
+        } else {
+            code
+        };
+        return Err(PostFailure::new(400, code, e.to_string()));
+    }
+
+    let threads_post_id = publish(client, &account, &req)
+        .await
+        .map_err(|e| PostFailure::new(502, "THREADS_API_ERROR", e.to_string()))?;
+
+    if let Err(e) = store.track_rate(&input.account_id, "post").await {
+        tracing::warn!("Failed to track rate for post: {e}");
+    }
+
+    // Permalink is best-effort.
+    let permalink = client
+        .get_permalink(&account, &threads_post_id)
+        .await
+        .ok()
+        .flatten();
+
+    let db_id = uuid::Uuid::now_v7().to_string();
+    store
+        .create_post_with_threads_id(&db_id, &input, &threads_post_id, permalink.as_deref())
+        .await
+        .map_err(|e| PostFailure::new(500, "CREATE_FAILED", e.to_string()))
 }

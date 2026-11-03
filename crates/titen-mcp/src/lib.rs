@@ -105,17 +105,21 @@ fn tools_list_raw() -> serde_json::Value {
             },
             {
                 "name": "create_post",
-                "description": "Create and publish a Threads post",
+                "description": "Publish a Threads post to Threads immediately (not a draft). Supports TEXT, IMAGE, VIDEO and CAROUSEL (2-20 images), and replies. Media URLs must be public https URLs. Use schedule_post to publish later.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "account_id": { "type": "string", "description": "Account ID to post from" },
-                        "caption": { "type": "string", "description": "Post caption text" },
-                        "media_type": { "type": "string", "enum": ["TEXT", "IMAGE"], "description": "Media type" },
-                        "image_url": { "type": "string", "description": "Image URL for IMAGE posts" },
-                        "alt_text": { "type": "string", "description": "Alt text for image accessibility" }
+                        "account_id": { "type": "string", "description": "Account ID to post from (see list_accounts)" },
+                        "caption": { "type": "string", "maxLength": 499, "description": "Post text. Required for TEXT; optional caption for media posts" },
+                        "media_type": { "type": "string", "enum": ["TEXT", "IMAGE", "VIDEO", "CAROUSEL"], "default": "TEXT", "description": "Post type" },
+                        "image_url": { "type": "string", "description": "Public https image URL (IMAGE)" },
+                        "video_url": { "type": "string", "description": "Public https video URL (VIDEO)" },
+                        "image_urls": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 20, "description": "2-20 public https image URLs (CAROUSEL)" },
+                        "media_ids": { "type": "array", "items": { "type": "string" }, "description": "Media library asset IDs (see list_media) — alternative to image_urls for CAROUSEL" },
+                        "alt_text": { "type": "string", "description": "Alt text for accessibility" },
+                        "reply_to_id": { "type": "string", "description": "Threads post ID to reply to; publishes as a reply instead of a root post" }
                     },
-                    "required": ["account_id", "caption"]
+                    "required": ["account_id"]
                 }
             },
             {
@@ -481,52 +485,37 @@ pub async fn handle_tool_call(
             }
         }.await,
         "create_post" => async {
-            let account_id = args
-                .get("account_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let caption = args.get("caption").and_then(|v| v.as_str()).unwrap_or("");
-
-            // #136: Validate caption length against Threads API limit.
-            if caption.chars().count() > 499 {
-                return Ok(json!({
-                    "error": format!(
-                        "Caption exceeds the 499-character limit (got {}; Threads accepts at most 500)",
-                        caption.chars().count()
-                    ),
-                    "code": "CAPTION_TOO_LONG"
-                }));
-            }
-            let media_type = args
-                .get("media_type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("TEXT");
-            let image_url = args.get("image_url").and_then(|v| v.as_str());
-
-            let input = titen_core::models::CreatePost {
-                account_id: account_id.to_string(),
-                caption: Some(caption.to_string()),
-                media_type: Some(media_type.to_string()),
-                image_url: image_url.map(|s| s.to_string()),
-                text_attachment: None,
-                video_url: None,
-                image_urls: None,
-                media_ids: None,
-                alt_text: args
-                    .get("alt_text")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string()),
-                reply_to_id: None,
+            let str_arg = |k: &str| args.get(k).and_then(|v| v.as_str()).map(|s| s.to_string());
+            let list_arg = |k: &str| {
+                args.get(k).and_then(|v| v.as_array()).map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                        .collect::<Vec<_>>()
+                })
             };
-
-            let id = uuid::Uuid::now_v7().to_string();
-            match store.create_post(&id, &input).await {
+            let input = titen_core::models::CreatePost {
+                account_id: str_arg("account_id").unwrap_or_default(),
+                caption: str_arg("caption"),
+                media_type: str_arg("media_type").map(|m| m.to_uppercase()),
+                image_url: str_arg("image_url"),
+                text_attachment: None,
+                video_url: str_arg("video_url"),
+                image_urls: list_arg("image_urls"),
+                media_ids: list_arg("media_ids"),
+                alt_text: str_arg("alt_text"),
+                reply_to_id: str_arg("reply_to_id"),
+            };
+            // Same path as POST /api/posts: validates, publishes to Threads, records it.
+            match titen_core::publisher::create_and_publish(store, threads_client, input).await {
                 Ok(post) => Ok(json!({
                     "id": post.id,
                     "status": post.status,
+                    "media_type": post.media_type,
+                    "threads_post_id": post.threads_post_id,
+                    "permalink": post.permalink,
                     "caption": post.caption,
                 })),
-                Err(e) => Err(format!("Failed to create post: {e}")),
+                Err(f) => Err(format!("{} ({})", f.message, f.code)),
             }
         }.await,
         "schedule_post" => async {

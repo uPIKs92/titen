@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Core domain logic for titen — accounts, posts, scheduling, analytics"
 
 [dependencies]
+url = "2.5.8"
 sqlx = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }

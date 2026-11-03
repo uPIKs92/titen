@@ -410,6 +410,8 @@ Titen ships with an MCP server (`titen-mcp`) for integration with AI tools.
 
 ### Remote agents (HTTP) — Hermes, Claude, Cursor, any MCP client
 
+> The web UI shows ready-to-copy config for this under **Settings → Agents (MCP)**, with a live connection test and the tool list.
+
 The API server speaks MCP over Streamable HTTP at `POST /api/mcp`, so agents on
 other hosts or containers need no access to the database file. It uses the same
 tools as `titen-mcp`, the server's own `TITEN_ENCRYPTION_KEY`, and each account's
@@ -483,7 +485,7 @@ Add to your MCP settings (`Settings → MCP`):
 | `list_accounts` | List all Threads accounts managed by titen |
 | `get_user_profile` | Fetch a Threads user's profile from the Threads API |
 | `get_publishing_limit` | Fetch an account's Threads publishing quota (daily post limit, etc.) |
-| `create_post` | Create and publish a Threads post |
+| `create_post` | Publish a post to Threads immediately: TEXT, IMAGE, VIDEO or CAROUSEL (`image_urls` or library `media_ids`), optional `reply_to_id`. Validates caption length, https/SSRF-safe media URLs and rate limits |
 | `schedule_post` | Schedule a post for future publishing |
 | `list_schedules` | List scheduled posts |
 | `cancel_schedule` | Cancel a scheduled post |
