@@ -7,3 +7,8 @@
 binaries/
 .cora/
 AUDIT-*.md
+
+# Runtime uploads (user media for posting) — never in git
+data/
+# Dependency lockfile intentionally untracked in this repo (all workspaces)
+web/package-lock.json
