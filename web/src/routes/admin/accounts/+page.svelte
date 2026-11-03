@@ -317,7 +317,7 @@
 	{/snippet}
 </PageHeader>
 
-<div class="data-table-wrap">
+<div class="data-table-wrap plk-card">
 	{#if loading}
 		<Table.Root>
 			<Table.Header><Table.Row><Table.Head>Username</Table.Head><Table.Head>Status</Table.Head><Table.Head class="hidden md:table-cell">Token</Table.Head><Table.Head class="hidden md:table-cell">Created</Table.Head><Table.Head>Actions</Table.Head></Table.Row></Table.Header>
@@ -335,9 +335,9 @@
 			</Table.Body>
 		</Table.Root>
 	{:else if accounts.length === 0}
-		<div class="empty-state">
-			<p class="empty-state-title">No accounts yet</p>
-			<p class="empty-state-desc">Add a Threads account to get started.</p>
+		<div class="plk-empty">
+			<p class="plk-empty-title">No accounts yet</p>
+			<p class="plk-empty-text">Add a Threads account to get started.</p>
 		</div>
 	{:else}
 		<Table.Root>
@@ -376,7 +376,7 @@
 									<div style="font-weight:500;">
 										{profiles[account.id]?.name ?? account.username}
 										{#if profiles[account.id]?.username && profiles[account.id]?.username !== account.username}
-											<span style="font-size:var(--text-xs);color:var(--color-muted);">@{profiles[account.id]!.username}</span>
+											<span style="font-size:var(--text-xs);color:var(--muted-foreground);">@{profiles[account.id]!.username}</span>
 										{/if}
 									</div>
 									{#if profiles[account.id]?.threads_biography}
@@ -457,8 +457,8 @@
 			<section class="connect-step" aria-labelledby="step-creds">
 				<h3 id="step-creds" class="connect-step-title"><span class="step-num">1</span> This account's Threads app</h3>
 				{#if accountsWithApp.length > 0}
-					<div class="form-group mb-sm">
-						<label class="form-label" for="copy_from">Reuse an existing account's app <span class="text-hint">(optional)</span></label>
+					<div class="plk-field mb-sm">
+						<label class="plk-label" for="copy_from">Reuse an existing account's app <span class="text-hint">(optional)</span></label>
 						<select id="copy_from" class="form-select" value={copyFromId} onchange={(e) => pickCopyFrom((e.currentTarget as HTMLSelectElement).value)} disabled={connecting}>
 							<option value="">Use a different app…</option>
 							{#each accountsWithApp as a (a.id)}
@@ -467,12 +467,12 @@
 						</select>
 					</div>
 				{/if}
-				<div class="form-group mb-sm">
-					<label class="form-label" for="new_app_id">Threads App ID</label>
+				<div class="plk-field mb-sm">
+					<label class="plk-label" for="new_app_id">Threads App ID</label>
 					<Input id="new_app_id" type="text" bind:value={newAppId} placeholder="Threads app ID (not the main Meta app ID)" disabled={connecting} oninput={() => { if (copySource && copySource.app_id !== newAppId.trim()) copyFromId = ''; }} />
 				</div>
-				<div class="form-group mb-sm">
-					<label class="form-label" for="new_app_secret">Threads App Secret</label>
+				<div class="plk-field mb-sm">
+					<label class="plk-label" for="new_app_secret">Threads App Secret</label>
 					<Input id="new_app_secret" type="password" bind:value={newAppSecret} autocomplete="off" placeholder={copySource ? `Using the saved secret from @${copySource.username}` : 'Threads app secret'} disabled={connecting} />
 				</div>
 				<p class="text-hint">Meta dashboard → Use cases → Access the Threads API → Customize → Settings. <button type="button" class="guide-link" onclick={() => openGuide(true)}>Open the setup guide</button></p>
@@ -508,24 +508,24 @@
 			<details class="manual-add">
 				<summary>Advanced: add with an access token instead</summary>
 				<form onsubmit={(e) => { e.preventDefault(); handleAddAccount(); }}>
-					<div class="form-group mb-sm">
-						<label class="form-label" for="access_token">Access Token</label>
+					<div class="plk-field mb-sm">
+						<label class="plk-label" for="access_token">Access Token</label>
 						<Input id="access_token" type="password" bind:value={formAccessToken} placeholder="Long-lived access token" disabled={submitting} />
 					</div>
-					<div class="form-group mb-sm">
-						<label class="form-label" for="username">Username <span class="text-hint">(optional)</span></label>
+					<div class="plk-field mb-sm">
+						<label class="plk-label" for="username">Username <span class="text-hint">(optional)</span></label>
 						<Input id="username" type="text" bind:value={formUsername} placeholder="e.g. @username" disabled={submitting} />
 					</div>
-					<div class="form-group mb-sm">
-						<label class="form-label" for="user_id">User ID <span class="text-hint">(optional)</span></label>
+					<div class="plk-field mb-sm">
+						<label class="plk-label" for="user_id">User ID <span class="text-hint">(optional)</span></label>
 						<Input id="user_id" type="text" bind:value={formUserId} placeholder="e.g. 1234567890" disabled={submitting} />
 					</div>
-					<div class="form-group mb-sm">
-						<label class="form-label" for="expires_at">Expires At <span class="text-hint">(optional)</span></label>
+					<div class="plk-field mb-sm">
+						<label class="plk-label" for="expires_at">Expires At <span class="text-hint">(optional)</span></label>
 						<Input id="expires_at" type="datetime-local" bind:value={formExpiresAt} disabled={submitting} />
 					</div>
-					<div class="form-group mb-sm">
-						<label class="form-label" for="app_secret">App Secret <span class="text-hint">(only to upgrade a short-lived token)</span></label>
+					<div class="plk-field mb-sm">
+						<label class="plk-label" for="app_secret">App Secret <span class="text-hint">(only to upgrade a short-lived token)</span></label>
 						<Input id="app_secret" type="password" bind:value={formAppSecret} placeholder="Threads App Secret" disabled={submitting} />
 					</div>
 					<div class="confirm-actions">
@@ -552,12 +552,12 @@
 			<Dialog.Title class="text-base font-semibold mb-xs">Threads app for @{editingAccount.username}</Dialog.Title>
 			<p class="text-hint mb-sm">Used when this account is connected or reconnected. Each account can use a different Threads app. <button type="button" class="guide-link" onclick={() => { editingAccount = null; openGuide(); }}>Where do I find these?</button></p>
 			<form onsubmit={(e) => { e.preventDefault(); saveAccountApp(); }}>
-				<div class="form-group mb-sm">
-					<label class="form-label" for="edit_app_id">Threads App ID</label>
+				<div class="plk-field mb-sm">
+					<label class="plk-label" for="edit_app_id">Threads App ID</label>
 					<Input id="edit_app_id" type="text" bind:value={editAppId} placeholder="Threads app ID" disabled={savingApp} />
 				</div>
-				<div class="form-group mb-sm">
-					<label class="form-label" for="edit_app_secret">Threads App Secret</label>
+				<div class="plk-field mb-sm">
+					<label class="plk-label" for="edit_app_secret">Threads App Secret</label>
 					<Input id="edit_app_secret" type="password" bind:value={editAppSecret} autocomplete="off" placeholder={editingAccount.app_secret_set ? 'Leave blank to keep the saved secret' : 'Threads app secret'} disabled={savingApp} />
 				</div>
 				<div class="confirm-actions">
@@ -592,7 +592,7 @@
 	.account-avatar {
 		width: 40px;
 		height: 40px;
-		border-radius: var(--radius-pill);
+		border-radius: 9999px;
 		object-fit: cover;
 		flex-shrink: 0;
 	}
@@ -600,14 +600,14 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: var(--color-accent-subtle, oklch(60% 0.15 260 / 0.15));
-		color: var(--color-accent, oklch(60% 0.15 260));
+		background: color-mix(in oklch, var(--primary) 8%, transparent);
+		color: var(--primary-text);
 		font-weight: 600;
 		font-size: var(--text-sm);
 	}
 	.account-bio {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		max-width: 280px;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -621,29 +621,29 @@
 		width: 100%;
 		padding: var(--space-md) var(--space-lg);
 		margin-bottom: var(--space-md);
-		background: var(--color-accent);
-		color: var(--color-accent-ink);
-		font-family: var(--font-display);
+		background: var(--primary);
+		color: var(--primary-foreground);
+		font-family: var(--plk-font-heading);
 		font-weight: 600;
 		font-size: var(--text-sm);
 		border: none;
-		border-radius: var(--radius-md);
+		border-radius: var(--plk-radius-md);
 		cursor: pointer;
 		transition: background-color var(--dur-short) var(--ease-out);
 	}
 	.oauth-connect-btn:hover {
-		background: oklch(50% 0.22 260);
+		background: color-mix(in oklch, var(--primary) 88%, var(--foreground));
 	}
 
-	.guide-link { background: none; border: 0; padding: 0; color: var(--color-accent); cursor: pointer; text-decoration: underline; font: inherit; }
+	.guide-link { background: none; border: 0; padding: 0; color: var(--primary-text); cursor: pointer; text-decoration: underline; font: inherit; }
 	.app-cell { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
 	.app-id { font-size: var(--text-xs); }
-	.form-select { width: 100%; padding: var(--space-xs) var(--space-sm); background: var(--surface-raised); border: var(--rule-default); border-radius: var(--radius-md); font-size: var(--text-sm); color: inherit; }
+	.form-select { width: 100%; padding: var(--space-xs) var(--space-sm); background: var(--card); border: var(--rule-default); border-radius: var(--plk-radius-md); font-size: var(--text-sm); color: inherit; }
 	.connect-step { margin-bottom: var(--space-md); }
 	.connect-step-title { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-sm); font-weight: 600; margin-bottom: var(--space-xs); }
-	.step-num { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--color-accent); color: var(--color-on-accent, #fff); font-size: var(--text-xs); }
+	.step-num { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--primary-text); color: var(--primary-foreground); font-size: var(--text-xs); }
 	.redirect-row { display: flex; align-items: center; gap: var(--space-xs); }
-	.redirect-uri { flex: 1; min-width: 0; overflow-wrap: anywhere; padding: var(--space-xs) var(--space-sm); background: var(--surface-raised); border: var(--rule-default); border-radius: var(--radius-md); font-size: var(--text-xs); }
+	.redirect-uri { flex: 1; min-width: 0; overflow-wrap: anywhere; padding: var(--space-xs) var(--space-sm); background: var(--card); border: var(--rule-default); border-radius: var(--plk-radius-md); font-size: var(--text-xs); }
 	.manual-add { margin-bottom: var(--space-md); font-size: var(--text-sm); }
-	.manual-add summary { cursor: pointer; color: var(--color-muted); margin-bottom: var(--space-sm); }
+	.manual-add summary { cursor: pointer; color: var(--muted-foreground); margin-bottom: var(--space-sm); }
 </style>

@@ -11,6 +11,8 @@
 </script>
 
 <!-- Nav: N9 Edge-aligned minimal -->
+<div class="plk-backdrop" aria-hidden="true"></div>
+
 <nav class="nav">
 	<div class="container nav__inner">
 		<a href="/" class="nav__wordmark" aria-label="Titen home">titen</a>
@@ -151,10 +153,10 @@
 		top: 0;
 		z-index: var(--z-sticky);
 		padding-block: var(--space-md);
-		background: oklch(98.5% 0.005 260 / 0.85);
+		background: color-mix(in oklch, var(--background) 85%, transparent);
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
-		border-bottom: 1px solid var(--color-rule);
+		border-bottom: 1px solid var(--border);
 	}
 
 	.nav__inner {
@@ -170,15 +172,15 @@
 	}
 
 	.nav__wordmark {
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		font-weight: 500;
 		font-size: var(--text-md);
-		color: var(--color-ink);
+		color: var(--foreground);
 		letter-spacing: -0.01em;
 	}
 
 	.nav__wordmark:hover {
-		color: var(--color-ink);
+		color: var(--foreground);
 	}
 
 	/* ── Hero ── */
@@ -187,12 +189,13 @@
 	}
 
 	.hero__heading {
-		max-width: 42rem;
+		font-size: clamp(2.25rem, 3vw + 1.25rem, 3.75rem);
+		max-width: 52rem;
 		margin-bottom: var(--space-lg);
 	}
 
 	.hero__heading--muted {
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		font-weight: 500;
 	}
 
@@ -200,7 +203,7 @@
 		max-width: 52rem;
 		font-size: var(--text-md);
 		line-height: 1.6;
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		margin-bottom: var(--space-xl);
 	}
 
@@ -216,19 +219,19 @@
 		align-items: center;
 		gap: var(--space-xs);
 		flex-wrap: wrap;
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		font-size: var(--text-sm);
-		color: var(--color-neutral);
+		color: var(--muted-foreground);
 	}
 
 	.hero__stack-dot {
-		color: var(--color-rule);
+		color: var(--border);
 	}
 
 	/* ── Features ── */
 	.features {
 		padding-block: var(--space-2xl);
-		border-top: 1px solid var(--color-rule);
+		border-top: 1px solid var(--border);
 	}
 
 	.features h2 {
@@ -237,16 +240,16 @@
 
 	.features__grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+		grid-template-columns: 1fr;
 		gap: var(--space-sm);
 	}
 
 	/* Asymmetric spans for visual variety */
 	.feature-card {
 		padding: var(--space-lg);
-		border: 1px solid var(--color-rule);
+		border: 1px solid var(--border);
 		border-radius: 8px;
-		background: var(--color-paper);
+		background: var(--background);
 		transition: border-color var(--dur-short) var(--ease-out);
 	}
 
@@ -276,7 +279,7 @@
 	}
 
 	.feature-card:hover {
-		border-color: var(--color-neutral);
+		border-color: var(--muted-foreground);
 	}
 
 	.feature-card h3 {
@@ -286,7 +289,7 @@
 
 	.feature-card p {
 		font-size: var(--text-sm);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		line-height: 1.6;
 		max-width: 40ch;
 	}
@@ -294,17 +297,17 @@
 	/* ── Code sections ── */
 	.code-section {
 		padding-block: var(--space-2xl);
-		border-top: 1px solid var(--color-rule);
+		border-top: 1px solid var(--border);
 	}
 
 	.code-section--alt {
-		background: var(--color-paper-2);
+		background: var(--card);
 	}
 
 	.code-section__label {
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		font-size: var(--text-xs);
-		color: var(--color-accent);
+		color: var(--primary-text);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
 		margin-bottom: var(--space-xs);
@@ -321,13 +324,13 @@
 	/* ── Install ── */
 	.install {
 		padding-block: var(--space-2xl) var(--space-3xl);
-		border-top: 1px solid var(--color-rule);
+		border-top: 1px solid var(--border);
 	}
 
 	.install__label {
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		font-size: var(--text-xs);
-		color: var(--color-accent);
+		color: var(--primary-text);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
 		margin-bottom: var(--space-xs);
@@ -342,16 +345,21 @@
 		margin-bottom: var(--space-lg);
 	}
 
+	.install__note a {
+		text-decoration: underline;
+		text-underline-offset: 0.2em;
+	}
+
 	.install__note {
 		font-size: var(--text-sm);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		max-width: 52rem;
 		line-height: 1.6;
 	}
 
 	/* ── Footer: Ft2 Inline rule single line ── */
 	.footer {
-		border-top: 1px solid var(--color-rule);
+		border-top: 1px solid var(--border);
 		padding-block: var(--space-lg);
 	}
 
@@ -360,20 +368,20 @@
 		align-items: center;
 		gap: var(--space-xs);
 		flex-wrap: wrap;
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		font-size: var(--text-xs);
-		color: var(--color-neutral);
+		color: var(--muted-foreground);
 	}
 
 	.footer__sep {
-		color: var(--color-rule);
+		color: var(--border);
 	}
 
 	.footer a {
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 	}
 
 	.footer a:hover {
-		color: var(--color-ink);
+		color: var(--foreground);
 	}
 </style>

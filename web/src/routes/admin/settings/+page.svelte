@@ -133,7 +133,7 @@
 <Tabs.Root
 	value={activeTab}
 	onValueChange={(v) => (activeTab = v as typeof activeTab)}
-	class="mb-8"
+	
 >
 	<Tabs.List>
 		<Tabs.Trigger value="general">General</Tabs.Trigger>
@@ -143,8 +143,8 @@
 
 	<!-- ── General ── -->
 	<Tabs.Content value="general">
-		<section class="settings-section">
-			<h2 class="settings-section-title">Instance</h2>
+		<section class="page-section">
+			<h2 class="section-heading">Instance</h2>
 			<div class="settings-card">
 				<Field>
 					<FieldLabel for="instance-name">Instance Name</FieldLabel>
@@ -158,7 +158,10 @@
 				</Field>
 			</div>
 
-			<h2 class="settings-section-title">Automation</h2>
+		</section>
+
+		<section class="page-section">
+			<h2 class="section-heading">Automation</h2>
 			<div class="settings-card">
 				<div class="form-row">
 					<Field>
@@ -201,9 +204,9 @@
 		</section>
 
 		<!-- System Health -->
-		<section class="settings-section">
+		<section class="page-section">
 			<div class="settings-section-row">
-				<h2 class="settings-section-title">System Health</h2>
+				<h2 class="section-heading">System Health</h2>
 				<Button variant="outline" size="sm" onclick={refreshHealth} disabled={healthLoading}>
 					{healthLoading ? 'Checking…' : 'Refresh'}
 				</Button>
@@ -213,7 +216,7 @@
 					<div class="health-grid">
 						<div class="health-item">
 							<span class="health-label">Status</span>
-							<span class="badge badge--{health.status === 'ok' ? 'success' : 'error'}">{health.status}</span>
+							<span class="plk-badge plk-badge--{health.status === 'ok' ? 'success' : 'destructive'}">{health.status}</span>
 						</div>
 						<div class="health-item">
 							<span class="health-label">Version</span>
@@ -227,7 +230,7 @@
 				</div>
 			{:else if !healthLoading}
 				<div class="settings-card">
-					<p class="form-helper">Click <strong>Refresh</strong> to check system health</p>
+					<p class="plk-field-hint">Click <strong>Refresh</strong> to check system health</p>
 				</div>
 			{/if}
 		</section>
@@ -240,11 +243,11 @@
 
 	<!-- ── Danger Zone ── -->
 	<Tabs.Content value="danger">
-		<section class="settings-section">
+		<section class="page-section">
 			<div class="settings-card settings-card--danger">
 				<h3 class="settings-danger-title">Purge Failed Posts</h3>
 				<p class="settings-danger-desc">
-					Permanently delete all posts with a <span class="badge badge--error">failed</span> status.
+					Permanently delete all posts with a <span class="plk-badge plk-badge--destructive">failed</span> status.
 					This action cannot be undone.
 				</p>
 				<div class="danger-confirm">
@@ -298,40 +301,22 @@
 
 <style>
 	/* ── Settings sections ── */
-	.settings-section {
-		margin-bottom: var(--space-xl);
-	}
 
-	.settings-section-title {
-		font-size: var(--text-md);
-		font-weight: 600;
-		margin-bottom: var(--space-sm);
-		margin-top: var(--space-lg);
-	}
-
-	.settings-section-title:first-child {
-		margin-top: 0;
-	}
 
 	.settings-section-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: var(--space-sm);
-		margin-bottom: var(--space-sm);
 		flex-wrap: wrap;
 	}
 
-	.settings-section-row .settings-section-title {
-		margin-bottom: 0;
-		margin-top: 0;
-	}
 
 	/* ── Settings card ── */
 	.settings-card {
-		background: var(--surface-raised);
+		background: var(--card);
 		border: var(--rule-default);
-		border-radius: var(--radius-lg);
+		border-radius: var(--plk-radius-lg);
 		padding: var(--space-lg);
 		display: flex;
 		flex-direction: column;
@@ -339,13 +324,13 @@
 	}
 
 	.settings-card--info {
-		border-color: var(--color-accent);
-		background: var(--color-accent-dim, color-mix(in srgb, var(--color-accent) 8%, var(--surface-raised)));
+		border-color: var(--primary);
+		background: color-mix(in oklch, var(--primary) 10%, var(--card));
 	}
 
 	.settings-info-text {
 		font-size: var(--text-sm);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		line-height: 1.6;
 	}
 
@@ -356,7 +341,7 @@
 	}
 
 	.settings-card--danger {
-		border-color: var(--color-error);
+		border-color: var(--destructive);
 		border-width: 1.5px;
 	}
 
@@ -395,15 +380,15 @@
 	}
 
 	.health-label {
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
 	}
 
 	.health-value {
-		font-family: var(--font-display);
+		font-family: var(--plk-font-heading);
 		font-size: var(--text-md);
 		font-weight: 600;
 	}
@@ -412,12 +397,12 @@
 	.settings-danger-title {
 		font-size: var(--text-base);
 		font-weight: 600;
-		color: var(--color-error);
+		color: var(--destructive-ink);
 	}
 
 	.settings-danger-desc {
 		font-size: var(--text-sm);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		line-height: 1.6;
 		margin-bottom: var(--space-xs);
 	}

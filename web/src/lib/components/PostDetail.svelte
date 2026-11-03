@@ -145,8 +145,8 @@
 					<div class="metrics-grid">
 						{#each Array(5) as _}
 							<div class="metric-card">
-								<div class="skeleton skeleton-line-lg"></div>
-								<div class="skeleton skeleton-line-sm"></div>
+								<div class="plk-skeleton skeleton-line-lg"></div>
+								<div class="plk-skeleton skeleton-line-sm"></div>
 							</div>
 						{/each}
 					</div>
@@ -227,7 +227,7 @@
 
 	.detail-label {
 		font-size: var(--text-xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		font-weight: 600;
@@ -239,15 +239,15 @@
 
 	.badge-muted {
 		padding: var(--space-3xs) var(--space-xs);
-		background: var(--color-paper-2);
-		border-radius: var(--radius-sm);
+		background: var(--card);
+		border-radius: var(--plk-radius-sm);
 		font-size: var(--text-xs);
 		font-weight: 600;
 	}
 
 	.permalink-link {
 		font-size: var(--text-sm);
-		color: var(--color-accent);
+		color: var(--primary-text);
 		text-decoration: none;
 		font-weight: 600;
 	}
@@ -267,9 +267,9 @@
 		line-height: 0;
 	}
 	.thumb-btn:focus-visible {
-		outline: 2px solid var(--color-primary);
+		outline: 2px solid var(--primary);
 		outline-offset: 2px;
-		border-radius: var(--radius-sm);
+		border-radius: var(--plk-radius-sm);
 	}
 
 	.detail-section {
@@ -295,9 +295,9 @@
 
 	.media-thumb {
 		aspect-ratio: 1;
-		border-radius: var(--radius-sm);
+		border-radius: var(--plk-radius-sm);
 		overflow: hidden;
-		border: 1px solid var(--color-rule);
+		border: 1px solid var(--border);
 	}
 
 	.media-thumb img {
@@ -316,8 +316,8 @@
 	.metric-card {
 		text-align: center;
 		padding: var(--space-xs);
-		background: var(--color-paper-2);
-		border-radius: var(--radius-sm);
+		background: var(--card);
+		border-radius: var(--plk-radius-sm);
 	}
 
 	.metric-value {
@@ -327,22 +327,22 @@
 
 	.metric-label {
 		font-size: var(--text-2xs);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
 
 	.no-data {
 		font-size: var(--text-sm);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		margin: 0;
 	}
 
 	/* Trend table */
 	.trend-table-wrap {
 		overflow-x: auto;
-		border: 1px solid var(--color-rule);
-		border-radius: var(--radius-sm);
+		border: 1px solid var(--border);
+		border-radius: var(--plk-radius-sm);
 	}
 
 	.trend-table {
@@ -356,7 +356,7 @@
 		padding: var(--space-2xs) var(--space-xs);
 		border-bottom: var(--table-border);
 		font-weight: 600;
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		text-transform: uppercase;
 		font-size: var(--text-2xs);
 	}
@@ -375,13 +375,13 @@
 	}
 
 	.mono {
-		font-family: var(--font-mono);
+		font-family: var(--plk-font-mono);
 	}
 
 	/* Skeleton */
 	.skeleton {
-		background: var(--color-paper-2);
-		border-radius: var(--radius-2xs);
+		background: var(--card);
+		border-radius: 2px;
 		animation: pulse 1.5s ease-in-out infinite;
 	}
 

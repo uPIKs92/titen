@@ -109,8 +109,8 @@
 </PageHeader>
 
 {#if accounts.length > 0}
-<div class="filter-row">
-	<label class="filter-label">Account:</label>
+<div class="page-toolbar">
+	<span class="plk-label">Account</span>
 	<Select.Root type="single" bind:value={selectedAccountId}>
 		<Select.Trigger>
 			{selectedAccountId ? `@${accounts.find((a) => a.id === selectedAccountId)?.username ?? ''}` : 'Select account...'}
@@ -126,7 +126,7 @@
 </div>
 {/if}
 
-<div class="data-table-wrap">
+<div class="data-table-wrap plk-card">
 	{#if loading}
 		<Table.Root>
 			<Table.Header><Table.Row><Table.Head>Author</Table.Head><Table.Head class="hidden md:table-cell">Post</Table.Head><Table.Head>Date</Table.Head><Table.Head>Action</Table.Head></Table.Row></Table.Header>
@@ -142,9 +142,9 @@
 			</Table.Body>
 		</Table.Root>
 	{:else if mentions.length === 0}
-		<div class="empty-state">
-			<p class="empty-state-title">No mentions loaded</p>
-			<p class="empty-state-desc">Select an account above, then click "Fetch Mentions" to pull recent mentions.</p>
+		<div class="plk-empty">
+			<p class="plk-empty-title">No mentions loaded</p>
+			<p class="plk-empty-text">Select an account above, then click "Fetch Mentions" to pull recent mentions.</p>
 		</div>
 	{:else}
 		<Table.Root>
@@ -205,26 +205,16 @@
 		white-space: nowrap;
 	}
 
-	.filter-row {
-		display: flex;
-		align-items: center;
-		gap: var(--space-xs);
-		margin-bottom: var(--space-md);
-	}
 
-	.filter-label {
-		font-size: var(--text-sm);
-		color: var(--color-muted);
-	}
 
 
 	.reply-modal {
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
+		background: var(--background);
+		border-radius: var(--plk-radius-md);
 		padding: var(--space-lg);
 		max-width: 32rem;
 		width: 90%;
-		box-shadow: var(--shadow-lg);
+		box-shadow: var(--plk-shadow-lg);
 	}
 
 	.reply-modal h3 {
@@ -233,12 +223,12 @@
 
 	.reply-original {
 		font-size: var(--text-sm);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		padding: var(--space-xs) var(--space-sm);
-		background: var(--color-bg-hover);
-		border-radius: var(--radius-sm);
+		background: var(--muted);
+		border-radius: var(--plk-radius-sm);
 		margin-bottom: var(--space-sm);
-		border-left: 3px solid var(--color-border);
+		border-left: 3px solid var(--border);
 	}
 
 	.reply-textarea {

@@ -145,36 +145,37 @@
 
 <PageHeader title="Posts" description="Manage and monitor your Threads content.">
 	{#snippet action()}
-		<div class="row-gap-sm">
-			<Select.Root type="single" bind:value={filterAccount}>
-				<Select.Trigger>
-					{filterAccount ? `@${accounts.find((a) => a.id === filterAccount)?.username ?? ''}` : 'All Accounts'}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="" label="All Accounts">All Accounts</Select.Item>
-					{#each accounts as account (account.id)}
-						<Select.Item value={account.id} label={`@${account.username}`}>
-							@{account.username}
-						</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-			<Select.Root type="single" bind:value={filterStatus}>
-				<Select.Trigger>
-					{filterStatus === '' ? 'All Status' : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="" label="All Status">All Status</Select.Item>
-					<Select.Item value="draft" label="Draft">Draft</Select.Item>
-					<Select.Item value="published" label="Published">Published</Select.Item>
-					<Select.Item value="failed" label="Failed">Failed</Select.Item>
-					<Select.Item value="deleted" label="Deleted">Deleted</Select.Item>
-				</Select.Content>
-			</Select.Root>
-			<Button variant="default" onclick={openNew} disabled={accounts.length === 0} title={accounts.length === 0 ? 'Add an account first' : undefined}>New Post</Button>
-		</div>
+		<Button variant="default" onclick={openNew} disabled={accounts.length === 0} title={accounts.length === 0 ? 'Add an account first' : undefined}>New Post</Button>
 	{/snippet}
 </PageHeader>
+
+<div class="page-toolbar">
+	<Select.Root type="single" bind:value={filterAccount}>
+		<Select.Trigger>
+			{filterAccount ? `@${accounts.find((a) => a.id === filterAccount)?.username ?? ''}` : 'All Accounts'}
+		</Select.Trigger>
+		<Select.Content>
+			<Select.Item value="" label="All Accounts">All Accounts</Select.Item>
+			{#each accounts as account (account.id)}
+				<Select.Item value={account.id} label={`@${account.username}`}>
+					@{account.username}
+				</Select.Item>
+			{/each}
+		</Select.Content>
+	</Select.Root>
+	<Select.Root type="single" bind:value={filterStatus}>
+		<Select.Trigger>
+			{filterStatus === '' ? 'All Status' : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
+		</Select.Trigger>
+		<Select.Content>
+			<Select.Item value="" label="All Status">All Status</Select.Item>
+			<Select.Item value="draft" label="Draft">Draft</Select.Item>
+			<Select.Item value="published" label="Published">Published</Select.Item>
+			<Select.Item value="failed" label="Failed">Failed</Select.Item>
+			<Select.Item value="deleted" label="Deleted">Deleted</Select.Item>
+		</Select.Content>
+	</Select.Root>
+</div>
 
 {#if showNew}
 	<Dialog.Root open onOpenChange={(o) => { if (!o && !publishing) showNew = false; }}>
@@ -182,16 +183,16 @@
 			<Dialog.Title class="text-base font-semibold mb-xs">New Post</Dialog.Title>
 			<p class="text-hint mb-sm">Publishes to Threads immediately. To post later, use Schedules.</p>
 			<form onsubmit={(e) => { e.preventDefault(); submitNew(); }}>
-				<div class="form-group mb-sm">
-					<label class="form-label" for="np_account">Account</label>
+				<div class="plk-field mb-sm">
+					<label class="plk-label" for="np_account">Account</label>
 					<select id="np_account" class="form-select" bind:value={newAccountId} disabled={publishing}>
 						{#each accounts as a (a.id)}
 							<option value={a.id}>@{a.username}</option>
 						{/each}
 					</select>
 				</div>
-				<div class="form-group mb-sm">
-					<label class="form-label" for="np_type">Type</label>
+				<div class="plk-field mb-sm">
+					<label class="plk-label" for="np_type">Type</label>
 					<select id="np_type" class="form-select" bind:value={newType} disabled={publishing}>
 						<option value="TEXT">Text</option>
 						<option value="IMAGE">Image</option>
@@ -199,15 +200,15 @@
 					</select>
 				</div>
 				{#if needsMedia}
-					<div class="form-group mb-sm">
-						<label class="form-label" for="np_media">{newType === 'IMAGE' ? 'Image' : 'Video'} URL</label>
+					<div class="plk-field mb-sm">
+						<label class="plk-label" for="np_media">{newType === 'IMAGE' ? 'Image' : 'Video'} URL</label>
 						<Input id="np_media" type="url" bind:value={newMediaUrl} placeholder="https://… (publicly reachable)" disabled={publishing} />
 					</div>
 				{/if}
-				<div class="form-group mb-sm">
-					<label class="form-label" for="np_caption">Caption</label>
+				<div class="plk-field mb-sm">
+					<label class="plk-label" for="np_caption">Caption</label>
 					<Textarea id="np_caption" rows={5} bind:value={newCaption} disabled={publishing} />
-					<p class="text-hint" style:color={newCaption.length > CAPTION_MAX ? 'var(--color-error)' : undefined}>{newCaption.length}/{CAPTION_MAX}</p>
+					<p class="text-hint" style:color={newCaption.length > CAPTION_MAX ? 'var(--destructive)' : undefined}>{newCaption.length}/{CAPTION_MAX}</p>
 				</div>
 				<div class="confirm-actions">
 					<Button type="button" variant="ghost" size="sm" onclick={() => (showNew = false)} disabled={publishing}>Cancel</Button>
@@ -218,13 +219,13 @@
 	</Dialog.Root>
 {/if}
 
-<div class="data-table-wrap">
+<div class="data-table-wrap plk-card">
 	<DataTable {columns} rows={filtered} {loading} emptyTitle="No posts yet" emptyDesc="Posts will appear here once you publish content." onrowclick={openDetail}>
 		{#snippet cell(row: Post, key: string)}
 			{#if key === 'caption'}
 				{row.caption ? (row.caption.length > 40 ? row.caption.slice(0, 40) + '…' : row.caption) : '(no caption)'}
 			{:else if key === 'account'}
-				<span style="color:var(--color-muted);">@{getAccountUsername(row.account_id)}</span>
+				<span style="color:var(--muted-foreground);">@{getAccountUsername(row.account_id)}</span>
 			{:else if key === 'status'}
 				<StatusBadge status={row.status} />
 			{:else if key === 'published_at'}

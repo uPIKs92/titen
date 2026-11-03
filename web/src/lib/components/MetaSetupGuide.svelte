@@ -145,19 +145,19 @@
 <style>
 	.guide-steps { list-style: none; counter-reset: step; padding: 0; margin: 0 0 var(--space-md); display: flex; flex-direction: column; gap: var(--space-md); }
 	.guide-steps > li { counter-increment: step; position: relative; padding-left: 2rem; font-size: var(--text-sm); }
-	.guide-steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--color-accent); color: var(--color-on-accent, #fff); font-size: var(--text-xs); display: inline-flex; align-items: center; justify-content: center; }
+	.guide-steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--primary-text); color: var(--primary-foreground); font-size: var(--text-xs); display: inline-flex; align-items: center; justify-content: center; }
 	.guide-steps h3, .guide-sub { font-size: var(--text-sm); font-weight: 600; margin: 0 0 var(--space-xs); }
-	.guide-steps p, .guide-steps ul { margin: 0 0 var(--space-xs); color: var(--color-muted); }
+	.guide-steps p, .guide-steps ul { margin: 0 0 var(--space-xs); color: var(--muted-foreground); }
 	.guide-steps ul { padding-left: 1.1rem; }
 	.guide-path { color: inherit !important; }
-	.guide-warn { padding: var(--space-xs) var(--space-sm); border: var(--rule-default); border-radius: var(--radius-md); background: var(--surface-raised); }
+	.guide-warn { padding: var(--space-xs) var(--space-sm); border: var(--rule-default); border-radius: var(--plk-radius-md); background: var(--card); }
 	.guide-copy { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-xs); }
-	.guide-copy code { flex: 1; min-width: 0; overflow-wrap: anywhere; padding: var(--space-xs) var(--space-sm); background: var(--surface-raised); border: var(--rule-default); border-radius: var(--radius-md); font-size: var(--text-xs); }
+	.guide-copy code { flex: 1; min-width: 0; overflow-wrap: anywhere; padding: var(--space-xs) var(--space-sm); background: var(--card); border: var(--rule-default); border-radius: var(--plk-radius-md); font-size: var(--text-xs); }
 	.guide-scopes { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
-	.guide-scopes code { font-size: var(--text-xs); padding: 0 var(--space-xs); border: var(--rule-default); border-radius: var(--radius-sm); }
-	.guide-link { background: none; border: 0; padding: 0; color: var(--color-accent); cursor: pointer; text-decoration: underline; font: inherit; }
+	.guide-scopes code { font-size: var(--text-xs); padding: 0 var(--space-xs); border: var(--rule-default); border-radius: var(--plk-radius-sm); }
+	.guide-link { background: none; border: 0; padding: 0; color: var(--primary-text); cursor: pointer; text-decoration: underline; font: inherit; }
 	.guide-table { width: 100%; border-collapse: collapse; font-size: var(--text-xs); margin-bottom: var(--space-md); }
 	.guide-table th, .guide-table td { text-align: left; padding: var(--space-xs); border-bottom: var(--rule-default); vertical-align: top; }
 	code { font-size: 0.92em; }
-	a { color: var(--color-accent); text-decoration: underline; }
+	a { color: var(--primary-text); text-decoration: underline; }
 </style>

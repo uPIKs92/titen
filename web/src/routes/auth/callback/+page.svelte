@@ -77,7 +77,7 @@
 		</div>
 	{:else if status === 'success'}
 		<div class="callback-card">
-			<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="1.5">
+			<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="1.5">
 				<path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
 			</svg>
 			<p class="callback-text">Account connected successfully</p>
@@ -85,7 +85,7 @@
 		</div>
 	{:else}
 		<div class="callback-card">
-			<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-error)" stroke-width="1.5">
+			<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--destructive)" stroke-width="1.5">
 				<circle cx="12" cy="12" r="10"/>
 				<path d="M15 9l-6 6M9 9l6 6" stroke-linecap="round"/>
 			</svg>
@@ -110,24 +110,24 @@
 		align-items: center;
 		gap: var(--space-md);
 		padding: var(--space-2xl);
-		background: var(--surface-raised);
+		background: var(--card);
 		border: var(--rule-default);
-		border-radius: var(--radius-xl);
+		border-radius: var(--plk-radius-xl);
 		max-width: 28rem;
 		text-align: center;
 	}
 
 	.callback-text {
 		font-size: var(--text-sm);
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		max-width: 30ch;
 	}
 
 	.callback-spinner {
 		width: 2.5rem;
 		height: 2.5rem;
-		border: 2px solid var(--color-rule);
-		border-top-color: var(--color-accent);
+		border: 2px solid var(--border);
+		border-top-color: var(--primary);
 		border-radius: 50%;
 		animation: spin 0.7s linear infinite;
 	}

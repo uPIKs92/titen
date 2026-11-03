@@ -13,7 +13,7 @@ import XCircle from '@lucide/svelte/icons/x-circle';
 import Info from '@lucide/svelte/icons/info';
 import AtSign from '@lucide/svelte/icons/at-sign';
 import Clock from '@lucide/svelte/icons/clock';
-	import '../../app.css';
+import LogOut from '@lucide/svelte/icons/log-out';
 	import { getToasts } from '$lib/toast.svelte';
 	import { page } from '$app/state';
 	import { verifySession, logout, hasSessionHint, SessionUnreachableError } from '$lib/api';
@@ -26,20 +26,6 @@ import Clock from '@lucide/svelte/icons/clock';
 	let authed = $state(false);
 	let appVersion = $state('');
 	let tzLabel = $state('');
-
-	// Mobile drawer: Escape closes; body scroll locked while open (#275)
-	function onWindowKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape' && sidebarOpen) closeSidebar();
-	}
-
-	$effect(() => {
-		if (!sidebarOpen) return;
-		const prev = document.body.style.overflow;
-		document.body.style.overflow = 'hidden';
-		return () => {
-			document.body.style.overflow = prev;
-		};
-	});
 
 	// Session verification. With a recent-sign-in hint the shell renders at once
 	// and is verified in the background; a slow/unreachable server shows a
@@ -97,17 +83,8 @@ import Clock from '@lucide/svelte/icons/clock';
 		{ href: '/admin/settings', label: 'Settings', icon: SettingsIcon },
 	] as const;
 
-	let sidebarOpen = $state(false);
-		function isActive(href: string): boolean {
+	function isActive(href: string): boolean {
 		return page.url.pathname.startsWith(href);
-	}
-
-	function toggleSidebar() {
-		sidebarOpen = !sidebarOpen;
-	}
-
-	function closeSidebar() {
-		sidebarOpen = false;
 	}
 </script>
 
@@ -115,83 +92,89 @@ import Clock from '@lucide/svelte/icons/clock';
 	<title>Titen Admin</title>
 </svelte:head>
 
-<svelte:window onkeydown={onWindowKeydown} />
+<a class="plk-skip-link" href="#main">Skip to content</a>
 
-
-
-<div class="admin-shell">
-	<!-- Mobile hamburger -->
-	<button
-		class="mobile-menu-btn"
-		onclick={toggleSidebar}
-		aria-label="Toggle menu"
-		aria-expanded={sidebarOpen}
-	>
-		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-			{#if sidebarOpen}
-				<path d="M18 6 6 18M6 6l12 12" />
-			{:else}
-				<path d="M3 12h18M3 6h18M3 18h18" />
-			{/if}
-		</svg>
-	</button>
-
-	<!-- Mobile sidebar backdrop -->
-	{#if sidebarOpen}
-		<button
-			class="sidebar-backdrop"
-			onclick={closeSidebar}
-			aria-label="Close menu"
-			tabindex="-1"
-		></button>
-	{/if}
-
-	<!-- Sidebar -->
-	<aside class="admin-sidebar" class:is-open={sidebarOpen} role="navigation" aria-label="Admin navigation">
-		<div class="sidebar-wordmark">
-			<a href="/admin/dashboard" class="link-plain">Titen</a>
+<div class="plk-shell">
+	<aside class="plk-sidebar" aria-label="Admin navigation">
+		<div class="plk-sidebar-header">
+			<a class="plk-sidebar-brand" href="/admin/dashboard">
+				<span class="plk-sidebar-brand-mark" aria-hidden="true">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4.5v9L12 21l-4-2.2" /><path d="M4 16.5v-9L12 3" /></svg>
+				</span>
+				<span class="plk-sidebar-brand-text">
+					<span class="plk-eyebrow" style="font-size: 0.625rem;">Threads</span>
+					<span style="font-weight: 600; white-space: nowrap;">Titen</span>
+				</span>
+			</a>
 		</div>
-		<nav class="sidebar-nav">
-			{#each navItems as item}
-				<a
-					href={item.href}
-					class="sidebar-link"
-					aria-current={isActive(item.href) ? 'page' : undefined}
-					onclick={closeSidebar}
-				>
-						<svelte:component this={item.icon} class="size-5" />
-					{item.label}
-				</a>
-			{/each}
+		<nav class="plk-sidebar-content">
+			<div class="plk-sidebar-group">
+				<div class="plk-sidebar-group-label">Workspace</div>
+				<ul class="plk-sidebar-menu">
+					{#each navItems as item}
+						<li>
+							<a
+								class="plk-sidebar-link"
+								href={item.href}
+								aria-current={isActive(item.href) ? 'page' : undefined}
+								data-plk-tooltip={item.label}
+								data-plk-tooltip-side="right"
+								data-plk-tooltip-collapsed
+							>
+								<item.icon aria-hidden="true" />
+								<span class="plk-sidebar-text">{item.label}</span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</div>
 		</nav>
-		<div class="sidebar-footer">
-			<button class="sidebar-logout" onclick={handleLogout}>Sign out</button>
-			<span class="sidebar-meta">
+		<div class="plk-sidebar-footer">
+			<button class="plk-sidebar-link" type="button" onclick={handleLogout}>
+				<LogOut aria-hidden="true" />
+				<span class="plk-sidebar-text">Sign out</span>
+			</button>
+			<span class="sidebar-meta plk-sidebar-text">
 				{#if appVersion}<span class="sidebar-version">v{appVersion}</span>{/if}
 				{#if tzLabel}<span class="sidebar-tz" title="Times shown in this timezone (server TZ env)"><Clock class="sidebar-clock" aria-hidden="true" /> {tzLabel}</span>{/if}
 			</span>
 		</div>
 	</aside>
+	<div class="plk-sidebar-backdrop"></div>
 
-	<!-- Main content -->
-	<div class="admin-main">
-		<main class="admin-content">
-			{#if showShell}
-				{#if unreachable}
-					<div class="conn-banner" role="alert" data-testid="session-banner">
-						<span>Can’t confirm your session — {unreachable}. Showing the last known view.</span>
-						<button type="button" class="conn-retry" onclick={verify} disabled={checking}>{checking ? 'Retrying…' : 'Retry'}</button>
+	<div class="plk-inset">
+		<header class="plk-topbar">
+			<button class="plk-btn plk-btn--ghost plk-btn--icon plk-btn--sm" type="button" data-plk-sidebar-toggle aria-label="Toggle sidebar">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>
+			</button>
+			<hr class="plk-separator" aria-orientation="vertical" />
+			<span class="plk-topbar-title">{navItems.find((n) => isActive(n.href))?.label ?? 'Admin'}</span>
+			<div class="plk-topbar-end">
+				<button class="plk-btn plk-btn--ghost plk-btn--icon plk-btn--sm" type="button" data-plk-theme-toggle aria-label="Toggle dark mode">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+				</button>
+			</div>
+		</header>
+
+		<main class="plk-main" id="main">
+			<div class="admin-content">
+				{#if showShell}
+					{#if unreachable}
+						<div class="plk-alert plk-alert--warning conn-banner" role="alert" data-testid="session-banner">
+							<span>Can’t confirm your session — {unreachable}. Showing the last known view.</span>
+							<button type="button" class="plk-btn plk-btn--outline plk-btn--sm" onclick={verify} disabled={checking}>{checking ? 'Retrying…' : 'Retry'}</button>
+						</div>
+					{/if}
+					{@render children()}
+				{:else if unreachable}
+					<div class="auth-loading auth-loading--error" role="alert" data-testid="session-error">
+						<p>Can’t reach the server — {unreachable}.</p>
+						<button type="button" class="plk-btn plk-btn--outline plk-btn--sm" onclick={verify} disabled={checking}>{checking ? 'Retrying…' : 'Retry'}</button>
 					</div>
+				{:else}
+					<div class="auth-loading" role="status">Verifying session…</div>
 				{/if}
-				{@render children()}
-			{:else if unreachable}
-				<div class="auth-loading auth-loading--error" role="alert" data-testid="session-error">
-					<p>Can’t reach the server — {unreachable}.</p>
-					<button type="button" class="conn-retry" onclick={verify} disabled={checking}>{checking ? 'Retrying…' : 'Retry'}</button>
-				</div>
-			{:else}
-				<div class="auth-loading" role="status">Verifying session…</div>
-			{/if}
+			</div>
 		</main>
 	</div>
 </div>
@@ -218,95 +201,31 @@ import Clock from '@lucide/svelte/icons/clock';
 		height: 0.75rem;
 	}
 
-	.mobile-menu-btn {
-		display: none;
-		position: fixed;
-		inset-block-start: var(--space-sm);
-		inset-inline-start: var(--space-sm);
-		z-index: calc(var(--z-modal) + 1);
-		width: 2.5rem;
-		height: 2.5rem;
-		align-items: center;
-		justify-content: center;
-		background: var(--surface-raised);
-		border: var(--rule-default);
-		border-radius: var(--radius-md);
-		color: var(--color-ink);
-		box-shadow: var(--shadow-whisper);
-	}
-
-	.mobile-menu-btn:hover {
-		background: var(--surface-sunken);
-	}
-
-	.mobile-menu-btn svg {
-		width: 1.25rem;
-		height: 1.25rem;
-	}
-
-	.sidebar-backdrop {
-		display: none;
-		position: fixed;
-		inset: 0;
-		background: oklch(0% 0 0 / 0.4);
-		z-index: var(--z-modal);
-		border: none;
-		cursor: pointer;
-		-webkit-tap-highlight-color: transparent;
-	}
-
-	@media (max-width: 48rem) {
-		.mobile-menu-btn {
-			display: flex;
-		}
-
-		.sidebar-backdrop {
-			display: block;
-		}
-	}
-
-	.sidebar-footer {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2xs);
-		align-items: flex-start;
-	}
-
-	.sidebar-logout {
-		background: none;
-		border: none;
-		color: var(--color-muted);
-		font-size: var(--text-xs);
-		font-family: var(--font-mono);
-		cursor: pointer;
-		padding: var(--space-3xs) 0;
-		transition: color 0.15s ease;
-	}
-
-	.sidebar-logout:hover {
-		color: var(--color-error);
-	}
-
-	.sidebar-version {
-		font-size: var(--text-xs);
-		color: var(--color-muted);
-		font-family: var(--font-mono);
-	}
-
 	.sidebar-meta {
 		display: flex;
 		gap: var(--space-xs);
 		align-items: center;
 		flex-wrap: wrap;
+		padding-inline: var(--space-xs);
+		font-family: var(--plk-font-mono);
+		font-size: var(--text-xs);
+		color: var(--sidebar-foreground);
+		opacity: 0.7;
 	}
 
 	.sidebar-tz {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
-		font-size: var(--text-xs);
-		color: var(--color-muted);
-		font-family: var(--font-mono);
+	}
+
+	.admin-content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-lg);
+		width: 100%;
+		min-width: 0;
+		max-width: 90rem;
 	}
 
 	.auth-loading--error { flex-direction: column; gap: var(--space-sm); text-align: center; }
@@ -317,29 +236,15 @@ import Clock from '@lucide/svelte/icons/clock';
 		gap: var(--space-sm);
 		flex-wrap: wrap;
 		margin-bottom: var(--space-md);
-		padding: var(--space-xs) var(--space-md);
-		border: 1px solid var(--color-warning);
-		border-radius: var(--radius-md);
-		background: var(--color-warning-dim, transparent);
 		font-size: var(--text-sm);
 	}
-	.conn-retry {
-		min-height: 2rem;
-		padding: 0.25rem 0.9rem;
-		border: var(--rule-default);
-		border-radius: var(--radius-md);
-		background: var(--surface-raised);
-		color: inherit;
-		cursor: pointer;
-	}
-	.conn-retry:disabled { opacity: 0.6; cursor: default; }
 
 	.auth-loading {
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		min-height: 50vh;
-		color: var(--color-muted);
+		color: var(--muted-foreground);
 		font-size: var(--text-sm);
 	}
 </style>
