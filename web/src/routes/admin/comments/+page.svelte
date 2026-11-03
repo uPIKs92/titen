@@ -58,6 +58,38 @@
 		skipped: comments.filter((c) => c.reply_status === 'skipped').length,
 	});
 
+	const selectedPost = $derived(posts.find((p) => p.id === selectedPostId) ?? null);
+	const filtersActive = $derived(!!(replyStatusFilter || sentimentFilter || searchQuery.trim()));
+
+	function clearFilters() {
+		replyStatusFilter = '';
+		sentimentFilter = '';
+		searchQuery = '';
+	}
+
+	function postLabel(p: Post): string {
+		return truncate((p.caption || '').trim() || '(no caption)', 70);
+	}
+	function postMeta(p: Post): string {
+		const when = p.published_at ?? p.created_at;
+		return [when ? formatDateTime(when) : null, p.status].filter(Boolean).join(' · ');
+	}
+
+	// Toggle-chip definitions (value '' = all)
+	const statusChips = $derived([
+		{ value: '', label: 'All', count: comments.length },
+		{ value: 'new', label: 'New', count: replyStatusSummary.new },
+		{ value: 'needs_reply', label: 'Needs reply', count: replyStatusSummary.needs_reply },
+		{ value: 'replied', label: 'Replied', count: replyStatusSummary.replied },
+		{ value: 'skipped', label: 'Skipped', count: replyStatusSummary.skipped },
+	]);
+	const sentimentChips = $derived([
+		{ value: '', label: 'All', count: comments.length },
+		{ value: 'positive', label: 'Positive', count: sentimentSummary.positive },
+		{ value: 'neutral', label: 'Neutral', count: sentimentSummary.neutral },
+		{ value: 'negative', label: 'Negative', count: sentimentSummary.negative },
+	]);
+
 	function formatDate(iso: string): string {
 		return formatDateTime(iso);
 	}
@@ -166,89 +198,74 @@
 	});
 </script>
 
-<PageHeader title="Comments" description="Comment inbox with reply workflow & sentiment analysis">
-	{#snippet action()}
-		<Button variant="default" size="sm" onclick={handleFetch} disabled={!selectedPostId || fetchLoading}>
-			{fetchLoading ? 'Fetching...' : 'Fetch New'}
-		</Button>
-	{/snippet}
-</PageHeader>
+<PageHeader title="Comments" description="Comment inbox with reply workflow & sentiment analysis" />
 
 {#if posts.length > 0}
-<div class="filter-row">
-	<label class="filter-label">Post:</label>
-	<Select.Root type="single" bind:value={selectedPostId}>
-		<Select.Trigger>
-			{selectedPostId ? posts.find((p) => p.id === selectedPostId) ? `${selectedPostId.slice(0, 8)}... ${truncate(posts.find((p) => p.id === selectedPostId)?.caption || '(no caption)', 40)}` : 'Select post...' : 'Select post...'}
-		</Select.Trigger>
-		<Select.Content>
-			{#each posts as post (post.id)}
-				<Select.Item value={post.id} label={`${post.id.slice(0, 8)}... ${truncate(post.caption || '(no caption)', 40)}`}>
-					{post.id.slice(0, 8)}... {truncate(post.caption || '(no caption)', 40)}
-				</Select.Item>
-			{/each}
-		</Select.Content>
-	</Select.Root>
-</div>
+	<section class="toolbar" aria-label="Comment filters">
+		<div class="toolbar-post">
+			<div class="field field--grow">
+				<label class="field-label" for="comments-post">Post</label>
+				<Select.Root type="single" bind:value={selectedPostId}>
+					<Select.Trigger id="comments-post" class="w-full">
+						<span class="trigger-text">
+							{selectedPost ? postLabel(selectedPost) : 'Select a post…'}
+						</span>
+					</Select.Trigger>
+					<Select.Content class="post-menu">
+						{#each posts as post (post.id)}
+							<Select.Item value={post.id} label={postLabel(post)}>
+								<span class="post-opt">
+									<span class="post-opt-title">{postLabel(post)}</span>
+									<span class="post-opt-meta">{postMeta(post)}</span>
+								</span>
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+			<Button variant="default" onclick={handleFetch} disabled={!selectedPostId || fetchLoading} class="fetch-btn">
+				{fetchLoading ? 'Fetching…' : 'Fetch new comments'}
+			</Button>
+		</div>
+
+		{#if comments.length > 0}
+			<div class="toolbar-filters">
+				<div class="field">
+					<span class="field-label" id="lbl-status">Reply status</span>
+					<div class="chips" role="group" aria-labelledby="lbl-status">
+						{#each statusChips as c (c.value)}
+							<button type="button" class="chip" class:chip--on={replyStatusFilter === c.value} aria-pressed={replyStatusFilter === c.value} onclick={() => (replyStatusFilter = c.value)}>
+								{c.label}<span class="chip-count tabular-nums">{c.count}</span>
+							</button>
+						{/each}
+					</div>
+				</div>
+				<div class="field">
+					<span class="field-label" id="lbl-sent">Sentiment</span>
+					<div class="chips" role="group" aria-labelledby="lbl-sent">
+						{#each sentimentChips as c (c.value)}
+							<button type="button" class="chip" class:chip--on={sentimentFilter === c.value} aria-pressed={sentimentFilter === c.value} onclick={() => (sentimentFilter = c.value)}>
+								{c.label}<span class="chip-count tabular-nums">{c.count}</span>
+							</button>
+						{/each}
+					</div>
+				</div>
+				<div class="field field--grow field--search">
+					<label class="field-label" for="comments-search">Search</label>
+					<Input id="comments-search" type="search" placeholder="Search comment text…" bind:value={searchQuery} />
+				</div>
+			</div>
+		{/if}
+	</section>
 {/if}
 
-{#if comments.length > 0}
-<!-- Summary bar: sentiment + reply status counts -->
-<div class="summary-bar">
-	<div class="summary-group">
-		<span class="summary-label">Sentiment:</span>
-		<span class="badge badge--success">{sentimentSummary.positive}+</span>
-		<span class="badge badge--error">{sentimentSummary.negative}-</span>
-		<span class="badge badge--neutral">{sentimentSummary.neutral}~</span>
+{#if comments.length > 0 && !loading && !commentsLoading}
+	<div class="results-line" role="status" aria-live="polite">
+		<span data-testid="results-count">Showing {filteredComments.length} of {comments.length} comments</span>
+		{#if filtersActive}
+			<button type="button" class="guide-link" onclick={clearFilters}>Clear filters</button>
+		{/if}
 	</div>
-	<div class="summary-group">
-		<span class="summary-label">Reply status:</span>
-		<span class="badge badge--neutral">{replyStatusSummary.new} new</span>
-		<span class="badge badge--warning">{replyStatusSummary.needs_reply} pending</span>
-		<span class="badge badge--success">{replyStatusSummary.replied} done</span>
-		<span class="badge badge--muted">{replyStatusSummary.skipped} skip</span>
-	</div>
-</div>
-
-<!-- Filter bar -->
-<div class="filter-bar">
-	<div class="filter-group">
-		<label class="filter-label">Status:</label>
-		<Select.Root type="single" bind:value={replyStatusFilter}>
-			<Select.Trigger size="sm">
-				{replyStatusFilter === '' ? 'All' : replyStatusFilter === 'new' ? 'New' : replyStatusFilter === 'needs_reply' ? 'Needs Reply' : replyStatusFilter === 'replied' ? 'Replied' : replyStatusFilter === 'skipped' ? 'Skipped' : 'All'}
-			</Select.Trigger>
-			<Select.Content>
-				<Select.Item value="" label="All">All</Select.Item>
-				<Select.Item value="new" label="New">New</Select.Item>
-				<Select.Item value="needs_reply" label="Needs Reply">Needs Reply</Select.Item>
-				<Select.Item value="replied" label="Replied">Replied</Select.Item>
-				<Select.Item value="skipped" label="Skipped">Skipped</Select.Item>
-			</Select.Content>
-		</Select.Root>
-	</div>
-	<div class="filter-group">
-		<label class="filter-label">Sentiment:</label>
-		<Select.Root type="single" bind:value={sentimentFilter}>
-			<Select.Trigger size="sm">
-				{sentimentFilter === '' ? 'All' : sentimentFilter === 'positive' ? 'Positive' : sentimentFilter === 'negative' ? 'Negative' : sentimentFilter === 'neutral' ? 'Neutral' : 'All'}
-			</Select.Trigger>
-			<Select.Content>
-				<Select.Item value="" label="All">All</Select.Item>
-				<Select.Item value="positive" label="Positive">Positive</Select.Item>
-				<Select.Item value="negative" label="Negative">Negative</Select.Item>
-				<Select.Item value="neutral" label="Neutral">Neutral</Select.Item>
-			</Select.Content>
-		</Select.Root>
-	</div>
-	<div class="filter-group filter-group--grow">
-		<Input
-			type="search"
-			placeholder="Search comments..."
-			bind:value={searchQuery}
-		/>
-	</div>
-</div>
 {/if}
 
 <div class="comments-list">
@@ -261,7 +278,7 @@
 	{:else if comments.length === 0}
 		<div class="empty-state">
 			<p class="empty-state-title">No comments yet</p>
-			<p class="empty-state-desc">Select a post above, then click "Fetch New" to pull comments.</p>
+			<p class="empty-state-desc">Choose a post above, then click “Fetch new comments” to pull them in.</p>
 		</div>
 	{:else if filteredComments.length === 0}
 		<div class="empty-state">
@@ -363,57 +380,166 @@
 </div>
 
 <style>
-	.filter-row {
+	.toolbar {
 		display: flex;
-		align-items: center;
-		gap: var(--space-xs);
+		flex-direction: column;
+		gap: var(--space-md);
+		padding: var(--space-md);
 		margin-bottom: var(--space-md);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
 	}
 
-	.filter-label {
-		font-size: var(--text-sm);
+	.toolbar-post {
+		display: flex;
+		align-items: flex-end;
+		gap: var(--space-sm);
+	}
+
+	.toolbar-filters {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: var(--space-md) var(--space-lg);
+		padding-top: var(--space-md);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2xs);
+		min-width: 0;
+	}
+
+	.field--grow {
+		flex: 1 1 14rem;
+	}
+
+	.field--search {
+		flex-basis: 16rem;
+	}
+
+	.field-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
 		color: var(--color-muted);
-		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+	}
+
+	.trigger-text {
+		display: block;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		text-align: left;
+	}
+
+	:global(.toolbar-post [data-slot='select-trigger']) {
+		min-width: 0;
+	}
+
+	:global(.fetch-btn) {
+		flex: 0 0 auto;
+	}
+
+	.post-opt {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+		max-width: min(34rem, 80vw);
+	}
+
+	.post-opt-title {
+		overflow: hidden;
+		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	.summary-bar {
+	.post-opt-meta {
+		font-size: var(--text-xs);
+		color: var(--color-muted);
+	}
+
+	.chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--space-md);
-		padding: var(--space-sm) 0;
-		margin-bottom: var(--space-sm);
-		border-bottom: 1px solid var(--color-border);
+		gap: var(--space-2xs);
 	}
 
-	.summary-group {
-		display: flex;
+	.chip {
+		display: inline-flex;
 		align-items: center;
 		gap: var(--space-xs);
+		min-height: 2rem;
+		padding: 0.15rem 0.7rem;
+		border: var(--rule-default);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--color-muted);
+		font-size: var(--text-sm);
+		cursor: pointer;
+		transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 	}
 
-	.summary-label {
+	.chip:hover {
+		color: inherit;
+	}
+
+	.chip--on {
+		color: inherit;
+		border-color: var(--color-accent);
+		background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+	}
+
+	.chip-count {
+		font-size: var(--text-xs);
+		color: var(--color-muted);
+	}
+
+	.results-line {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		margin-bottom: var(--space-sm);
 		font-size: var(--text-sm);
 		color: var(--color-muted);
-		font-weight: 600;
 	}
 
-	.filter-bar {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-sm);
-		margin-bottom: var(--space-md);
+	.guide-link {
+		background: none;
+		border: none;
+		padding: 0;
+		color: var(--color-accent);
+		text-decoration: underline;
+		cursor: pointer;
+		font-size: inherit;
 	}
 
-	.filter-group {
-		display: flex;
-		align-items: center;
-		gap: var(--space-xs);
-	}
+	@media (max-width: 40rem) {
+		.toolbar {
+			padding: var(--space-sm);
+		}
 
-	.filter-group--grow {
-		flex: 1;
-		min-width: 12rem;
+		.toolbar-post {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.toolbar-filters {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		/* flex-basis would otherwise become a height in a column layout */
+		.field--grow,
+		.field--search {
+			flex: 0 0 auto;
+		}
 	}
 
 	.comments-list {
