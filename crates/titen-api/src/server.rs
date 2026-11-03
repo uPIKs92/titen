@@ -559,16 +559,6 @@ pub async fn serve(
             "/api/threads/share-to-instagram",
             post(routes::threads::share_to_instagram),
         )
-        // P3.1: Static media files behind auth — prevents unauthorized access
-        // to uploaded content. Cookie-based session works for <img> tags.
-        .nest_service(
-            "/media",
-            ServeDir::new(
-                std::env::var("TITEN_LOCAL_STORAGE_DIR")
-                    .unwrap_or_else(|_| "/data/media".to_string()),
-            )
-            .append_index_html_on_directories(false),
-        )
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             api_key_auth,
@@ -602,6 +592,18 @@ pub async fn serve(
         .route("/api/auth/logout", post(routes::auth::logout))
         .merge(docs_layer)
         .merge(protected_routes)
+        // Media files are served PUBLICLY (no auth): Meta's crawler must be
+        // able to fetch IMAGE/VIDEO/CAROUSEL URLs when publishing to Threads.
+        // Storage keys are UUIDs, so enumeration is not practical. Authed
+        // serving (P3.1) broke local-storage publishing end-to-end (#publish).
+        .nest_service(
+            "/media",
+            ServeDir::new(
+                std::env::var("TITEN_LOCAL_STORAGE_DIR")
+                    .unwrap_or_else(|_| "/data/media".to_string()),
+            )
+            .append_index_html_on_directories(false),
+        )
         .layer(TraceLayer::new_for_http())
         .layer(match cors_origins {
             Some(origins) if !origins.is_empty() => {

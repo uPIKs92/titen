@@ -11,6 +11,7 @@
 	import { formatDateShort } from '$lib/tz';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import { Input } from '$lib/components/ui/input';
+	import { freshAgentKey } from '$lib/freshAgentKey.svelte';
 	import { toast } from '$lib/toast.svelte';
 	import { Button } from '$lib/components/ui/button';
 
@@ -26,12 +27,16 @@
 	let result = $state<{ version: string; protocol: string; tools: McpTool[] } | null>(null);
 	let error = $state('');
 
+	const newKey = $derived(freshAgentKey.current);
+	// Config snippets use the key just created; otherwise a placeholder.
+	const keyText = $derived(newKey?.value ?? '<TITEN_API_KEY>');
+
 	const snippets = $derived<Record<Format, { label: string; hint: string; code: string }>>({
 		json: {
 			label: 'MCP client (JSON)',
 			hint: 'Hermes, Cursor, Claude Desktop and other clients that take an mcpServers block.',
 			code: JSON.stringify(
-				{ mcpServers: { titen: { url: endpoint, headers: { 'X-API-Key': '<TITEN_API_KEY>' } } } },
+				{ mcpServers: { titen: { url: endpoint, headers: { 'X-API-Key': keyText } } } },
 				null,
 				2
 			),
@@ -39,12 +44,12 @@
 		claude: {
 			label: 'Claude Code',
 			hint: 'Run once in a terminal.',
-			code: `claude mcp add --transport http titen ${endpoint} \\\n  --header "X-API-Key: <TITEN_API_KEY>"`,
+			code: `claude mcp add --transport http titen ${endpoint} \\\n  --header "X-API-Key: ${keyText}"`,
 		},
 		curl: {
 			label: 'curl',
 			hint: 'Quick check from any machine that can reach this server.',
-			code: `curl -s -X POST ${endpoint} \\\n  -H "X-API-Key: <TITEN_API_KEY>" -H "content-type: application/json" \\\n  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`,
+			code: `curl -s -X POST ${endpoint} \\\n  -H "X-API-Key: ${keyText}" -H "content-type: application/json" \\\n  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`,
 		},
 		stdio: {
 			label: 'Local (stdio)',
@@ -93,7 +98,6 @@
 	let keyName = $state('');
 	let keyScope = $state<'read' | 'write'>('read');
 	let creating = $state(false);
-	let newKey = $state<{ name: string; value: string } | null>(null);
 	let revoking = $state<AgentKey | null>(null);
 	const activeKeys = $derived(keys.filter((k) => !k.revoked_at));
 
@@ -112,7 +116,7 @@
 		creating = true;
 		try {
 			const r = await createAgentKey({ name: keyName.trim(), scope: keyScope });
-			newKey = { name: r.key.name, value: r.api_key };
+			freshAgentKey.set({ name: r.key.name, value: r.api_key });
 			keyName = '';
 			await loadKeys();
 		} catch (e) {
@@ -195,7 +199,11 @@
 					{copied === 'snippet' ? 'Copied' : 'Copy'}
 				</Button>
 			</div>
-			<p class="mcp-hint">Replace <code>&lt;TITEN_API_KEY&gt;</code> with an agent key from below (or the master key).</p>
+			{#if newKey}
+				<p class="mcp-hint" data-testid="mcp-snippet-note">These snippets include the key you just created (“{newKey.name}”). Copy them before leaving this page — the key can’t be shown again.</p>
+			{:else}
+				<p class="mcp-hint">Replace <code>&lt;TITEN_API_KEY&gt;</code> with an agent key from below (or the master key). Creating a key fills it in here.</p>
+			{/if}
 		</div>
 	</div>
 
@@ -209,11 +217,11 @@
 
 		{#if newKey}
 			<div class="mcp-newkey" role="status" data-testid="mcp-newkey">
-				<p class="mcp-text"><strong>Key for “{newKey.name}”</strong> — copy it now, it won’t be shown again.</p>
+				<p class="mcp-text"><strong>Key for “{newKey.name}”</strong> — copy it now, it won’t be shown again. It is filled into the snippets below.</p>
 				<div class="mcp-row">
 					<code class="mcp-code-inline" data-testid="mcp-newkey-value">{newKey.value}</code>
 					<Button type="button" size="sm" onclick={() => newKey && copy(newKey.value, 'newkey')}>{copied === 'newkey' ? 'Copied' : 'Copy'}</Button>
-					<Button type="button" variant="ghost" size="sm" onclick={() => (newKey = null)}>Done</Button>
+					<Button type="button" variant="ghost" size="sm" onclick={() => freshAgentKey.clear()}>Done</Button>
 				</div>
 			</div>
 		{/if}

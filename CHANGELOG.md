@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Serve `/media` without API-key auth** — Meta's crawler must be able to fetch IMAGE/VIDEO/CAROUSEL URLs at publish time; the authenticated serving introduced in P3.1 made local-storage publishing fail end-to-end (`THREADS_API_ERROR` at container creation). Files are still addressed by unguessable UUID keys, and storage keys stay out of listings. Also requires `TITEN_LOCAL_PUBLIC_URL` to be an absolute, publicly reachable prefix for local storage (the launcher now sets `https://titen.piyuralabs.com/media`).
+
+### Fixed
+
+- **Removed duplicate close buttons on detail/lightbox dialogs** — the custom `×` header buttons in Post Detail and Schedule Detail dropped (Dialog close + Escape/backdrop remain), the media lightbox no longer renders its built-in close button on top of the dark backdrop, and the now-unused `.detail-close` styles were deleted.
+
 ## [0.9.4] - 2026-09-10
 
 ### Fixed
