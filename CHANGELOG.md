@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Serve `/media` without API-key auth** — Meta's crawler must be able to fetch IMAGE/VIDEO/CAROUSEL URLs at publish time; the authenticated serving introduced in P3.1 made local-storage publishing fail end-to-end (`THREADS_API_ERROR` at container creation). Files are still addressed by unguessable UUID keys, and storage keys stay out of listings. Also requires `TITEN_LOCAL_PUBLIC_URL` to be an absolute, publicly reachable prefix for local storage (the launcher now sets `https://titen.piyuralabs.com/media`).
+
 ## [0.9.4] - 2026-09-10
 
 ### Fixed
