@@ -101,6 +101,31 @@ export interface McpTool {
 	annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean };
 }
 
+export interface AgentKey {
+	id: string;
+	name: string;
+	key_prefix: string;
+	scope: 'read' | 'write';
+	created_at: string;
+	last_used_at: string | null;
+	revoked_at: string | null;
+}
+
+export const listAgentKeys = (): Promise<AgentKey[]> => request<AgentKey[]>('/agent-keys');
+
+/** Returns the new key record plus its plaintext, which is shown only once. */
+export const createAgentKey = (data: {
+	name: string;
+	scope: 'read' | 'write';
+}): Promise<{ key: AgentKey; api_key: string }> =>
+	request<{ key: AgentKey; api_key: string }>('/agent-keys', {
+		method: 'POST',
+		body: JSON.stringify(data),
+	});
+
+export const revokeAgentKey = (id: string): Promise<void> =>
+	request<void>(`/agent-keys/${id}`, { method: 'DELETE' });
+
 /** Call the MCP endpoint (POST /api/mcp) with the current session. */
 export async function mcpRequest<T>(method: string, params?: Record<string, unknown>): Promise<T> {
 	const res = await fetch(`${BASE}/mcp`, {
@@ -459,6 +484,31 @@ export const createReply = (data: {
 	});
 
 // ── Account Insights (aggregate) ──
+/**
+ * The API passes through Threads' insight list
+ * (`[{ name, total_value?: {value}, values?: [{value}] }]`).
+ * Flatten it to `{ metricName: number }`; a flat object is passed through.
+ */
+export function normalizeInsights(raw: unknown): AccountInsights {
+	if (!Array.isArray(raw)) return (raw && typeof raw === 'object' ? raw : {}) as AccountInsights;
+	const out: AccountInsights = {};
+	for (const m of raw as Array<{
+		name?: string;
+		total_value?: { value?: number } | null;
+		values?: Array<{ value?: number }> | null;
+	}>) {
+		if (!m?.name) continue;
+		const total = m.total_value?.value;
+		out[m.name] =
+			typeof total === 'number'
+				? total
+				: Array.isArray(m.values)
+					? m.values.reduce((sum, v) => sum + (typeof v?.value === 'number' ? v.value : 0), 0)
+					: null;
+	}
+	return out;
+}
+
 export const getAccountInsights = (accountId: string, params?: {
 	metrics?: string;
 	since?: number;
@@ -469,7 +519,7 @@ export const getAccountInsights = (accountId: string, params?: {
 	if (params?.since) q.set('since', String(params.since));
 	if (params?.until) q.set('until', String(params.until));
 	const qs = q.toString();
-	return request<AccountInsights>(`/accounts/${accountId}/insights${qs ? `?${qs}` : ''}`);
+	return request<unknown>(`/accounts/${accountId}/insights${qs ? `?${qs}` : ''}`).then(normalizeInsights);
 };
 
 // ── OAuth ──

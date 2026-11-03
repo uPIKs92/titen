@@ -1,5 +1,16 @@
 <script lang="ts">
-	import { mcpRequest, ApiError, type McpTool } from '$lib/api';
+	import {
+		mcpRequest,
+		listAgentKeys,
+		createAgentKey,
+		revokeAgentKey,
+		ApiError,
+		type McpTool,
+		type AgentKey,
+	} from '$lib/api';
+	import { formatDateShort } from '$lib/tz';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import { Input } from '$lib/components/ui/input';
 	import { toast } from '$lib/toast.svelte';
 	import { Button } from '$lib/components/ui/button';
 
@@ -76,6 +87,58 @@
 		}
 	}
 
+	// ── Agent keys ──
+	let keys = $state<AgentKey[]>([]);
+	let keysLoaded = $state(false);
+	let keyName = $state('');
+	let keyScope = $state<'read' | 'write'>('read');
+	let creating = $state(false);
+	let newKey = $state<{ name: string; value: string } | null>(null);
+	let revoking = $state<AgentKey | null>(null);
+	const activeKeys = $derived(keys.filter((k) => !k.revoked_at));
+
+	async function loadKeys() {
+		try {
+			keys = await listAgentKeys();
+		} catch {
+			toast('Failed to load agent keys', 'error');
+		} finally {
+			keysLoaded = true;
+		}
+	}
+
+	async function submitKey() {
+		if (!keyName.trim() || creating) return;
+		creating = true;
+		try {
+			const r = await createAgentKey({ name: keyName.trim(), scope: keyScope });
+			newKey = { name: r.key.name, value: r.api_key };
+			keyName = '';
+			await loadKeys();
+		} catch (e) {
+			toast(e instanceof ApiError ? e.message : 'Failed to create key', 'error');
+		} finally {
+			creating = false;
+		}
+	}
+
+	async function confirmRevoke() {
+		const k = revoking;
+		revoking = null;
+		if (!k) return;
+		try {
+			await revokeAgentKey(k.id);
+			toast(`Revoked "${k.name}"`, 'success');
+			await loadKeys();
+		} catch {
+			toast('Failed to revoke key', 'error');
+		}
+	}
+
+	$effect(() => {
+		if (!keysLoaded) loadKeys();
+	});
+
 	async function test() {
 		testing = true;
 		error = '';
@@ -132,8 +195,64 @@
 					{copied === 'snippet' ? 'Copied' : 'Copy'}
 				</Button>
 			</div>
-			<p class="mcp-hint">Replace <code>&lt;TITEN_API_KEY&gt;</code> with your key.</p>
+			<p class="mcp-hint">Replace <code>&lt;TITEN_API_KEY&gt;</code> with an agent key from below (or the master key).</p>
 		</div>
+	</div>
+
+	<h2 class="mcp-title">Agent keys</h2>
+	<div class="mcp-card">
+		<p class="mcp-text">
+			Give each agent its own key. <strong>Read</strong> keys can only read data and call read-only tools;
+			<strong>Write</strong> keys can also publish, schedule and connect accounts. Neither can manage keys or
+			settings. Revoke a key at any time without affecting the others.
+		</p>
+
+		{#if newKey}
+			<div class="mcp-newkey" role="status" data-testid="mcp-newkey">
+				<p class="mcp-text"><strong>Key for “{newKey.name}”</strong> — copy it now, it won’t be shown again.</p>
+				<div class="mcp-row">
+					<code class="mcp-code-inline" data-testid="mcp-newkey-value">{newKey.value}</code>
+					<Button type="button" size="sm" onclick={() => newKey && copy(newKey.value, 'newkey')}>{copied === 'newkey' ? 'Copied' : 'Copy'}</Button>
+					<Button type="button" variant="ghost" size="sm" onclick={() => (newKey = null)}>Done</Button>
+				</div>
+			</div>
+		{/if}
+
+		<form class="mcp-keyform" onsubmit={(e) => { e.preventDefault(); submitKey(); }}>
+			<div class="mcp-keyform-name">
+				<label class="mcp-label" for="agent_key_name">Name</label>
+				<Input id="agent_key_name" type="text" bind:value={keyName} placeholder="e.g. Hermes (analytics)" maxlength={80} disabled={creating} />
+			</div>
+			<div>
+				<label class="mcp-label" for="agent_key_scope">Access</label>
+				<select id="agent_key_scope" class="form-select" bind:value={keyScope} disabled={creating}>
+					<option value="read">Read-only</option>
+					<option value="write">Read &amp; write</option>
+				</select>
+			</div>
+			<Button type="submit" disabled={!keyName.trim() || creating}>{creating ? 'Creating…' : 'Create key'}</Button>
+		</form>
+
+		{#if activeKeys.length > 0}
+			<ul class="mcp-keys" data-testid="mcp-keys">
+				{#each activeKeys as k (k.id)}
+					<li class="mcp-key">
+						<div class="mcp-key-main">
+							<strong>{k.name}</strong>
+							<span class="mcp-scope mcp-scope--{k.scope}">{k.scope === 'read' ? 'Read-only' : 'Read & write'}</span>
+						</div>
+						<div class="mcp-key-meta">
+							<code>{k.key_prefix}…</code>
+							<span>Created {formatDateShort(k.created_at)}</span>
+							<span>{k.last_used_at ? `Last used ${formatDateShort(k.last_used_at)}` : 'Never used'}</span>
+						</div>
+						<Button variant="ghost" size="sm" onclick={() => (revoking = k)}>Revoke</Button>
+					</li>
+				{/each}
+			</ul>
+		{:else if keysLoaded}
+			<p class="mcp-hint">No agent keys yet. Until you create one, agents would have to use the master <code>TITEN_API_KEY</code>.</p>
+		{/if}
 	</div>
 
 	<div class="mcp-head">
@@ -148,20 +267,32 @@
 				<span class="mcp-ok">Connected</span> · Titen {result.version} · protocol {result.protocol} · {result.tools.length} tools
 			</p>
 			{#each groups as g (g.k)}
-				<div class="mcp-group">
-					<h3 class="mcp-group-title">{g.label} <span class="mcp-count">{g.tools.length}</span></h3>
+				<details class="mcp-group" data-testid="mcp-group-{g.k}">
+					<summary class="mcp-group-summary">
+						<span class="mcp-group-title">{g.label}</span>
+						<span class="mcp-count">{g.tools.length}</span>
+					</summary>
 					<ul class="mcp-tools">
 						{#each g.tools as t (t.name)}
 							<li><code>{t.name}</code><span class="mcp-desc">{t.description}</span></li>
 						{/each}
 					</ul>
-				</div>
+				</details>
 			{/each}
 		{:else}
 			<p class="mcp-hint">Checking…</p>
 		{/if}
 	</div>
 </section>
+
+<ConfirmDialog
+	open={!!revoking}
+	title="Revoke key?"
+	message={revoking ? `“${revoking.name}” will stop working immediately. This cannot be undone.` : ''}
+	confirmLabel="Revoke"
+	onconfirm={confirmRevoke}
+	oncancel={() => (revoking = null)}
+/>
 
 <style>
 	.mcp-section { margin-bottom: var(--space-xl); }
@@ -184,7 +315,20 @@
 	.mcp-snippet :global(.mcp-copy) { position: absolute; top: var(--space-xs); right: var(--space-xs); }
 	.mcp-ok { color: var(--color-success, #16a34a); font-weight: 600; }
 	.mcp-error { color: var(--color-error); font-size: var(--text-sm); }
-	.mcp-group-title { font-size: var(--text-sm); font-weight: 600; margin-bottom: var(--space-2xs); }
+	.mcp-group { border: var(--rule-default); border-radius: var(--radius-md); }
+	.mcp-group-summary { display: flex; align-items: center; gap: var(--space-xs); padding: var(--space-xs) var(--space-sm); min-height: 2.25rem; cursor: pointer; }
+	.mcp-group[open] > .mcp-group-summary { border-bottom: var(--rule-default); }
+	.mcp-group .mcp-tools { padding: var(--space-sm); }
+	.mcp-group-title { font-size: var(--text-sm); font-weight: 600; }
+	.mcp-newkey { border: 1px solid var(--color-accent); border-radius: var(--radius-md); padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-xs); }
+	.mcp-keyform { display: flex; gap: var(--space-sm); align-items: flex-end; flex-wrap: wrap; }
+	.mcp-keyform-name { flex: 1 1 14rem; min-width: 0; }
+	.mcp-keys { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-xs); }
+	.mcp-key { display: flex; gap: var(--space-sm); align-items: center; justify-content: space-between; flex-wrap: wrap; border: var(--rule-default); border-radius: var(--radius-md); padding: var(--space-xs) var(--space-sm); }
+	.mcp-key-main { display: flex; gap: var(--space-xs); align-items: center; flex-wrap: wrap; }
+	.mcp-key-meta { display: flex; gap: var(--space-sm); flex-wrap: wrap; font-size: var(--text-xs); color: var(--color-muted); flex: 1 1 14rem; }
+	.mcp-scope { font-size: var(--text-xs); padding: 0 0.5rem; border-radius: 999px; border: var(--rule-default); }
+	.mcp-scope--write { color: var(--color-warning-ink, inherit); background: var(--color-warning-dim, transparent); }
 	.mcp-count { color: var(--color-muted); font-weight: 400; margin-left: var(--space-2xs); }
 	.mcp-tools { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-2xs); }
 	.mcp-tools li { display: flex; gap: var(--space-sm); align-items: baseline; flex-wrap: wrap; font-size: var(--text-sm); }
