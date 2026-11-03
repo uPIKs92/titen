@@ -7,6 +7,9 @@ export interface Account {
 	id: string;
 	username: string;
 	user_id: string;
+	/** This account's own Threads app ID (secret is never returned). */
+	app_id?: string | null;
+	app_secret_set?: boolean;
 	is_active: boolean;
 	expires_at: string | null;
 	token_status: 'valid' | 'expired' | 'unknown';

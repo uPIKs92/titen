@@ -30,6 +30,8 @@ fn safe_account_json(account: &titen_core::models::Account) -> serde_json::Value
         "id": account.id,
         "username": account.username,
         "user_id": safe_user_id,
+        "app_id": account.app_id,
+        "app_secret_set": account.app_secret.as_deref().is_some_and(|s| !s.is_empty()),
         "is_active": account.is_active,
         "expires_at": account.expires_at,
         "token_status": account.token_status(),

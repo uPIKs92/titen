@@ -451,6 +451,10 @@ pub async fn serve(
         )
         .route("/api/media/{id}", delete(routes::media::delete_media))
         .route("/api/oauth/state", post(routes::oauth_state::create_state))
+        .route(
+            "/api/oauth/authorize-url",
+            post(routes::oauth_state::authorize_url),
+        )
         .route("/api/oauth/exchange", post(routes::oauth::oauth_exchange))
         .route(
             "/api/settings",

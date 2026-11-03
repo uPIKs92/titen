@@ -3,7 +3,9 @@
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import { listAccounts, createAccount, deleteAccount, refreshToken, getOAuthConfig, getThreadsProfile, createOAuthState } from '$lib/api';
+	import { listAccounts, createAccount, deleteAccount, refreshToken, getOAuthConfig, getThreadsProfile, createAuthorizeUrl, updateAccount } from '$lib/api';
+	import type { OAuthConfig } from '$lib/api';
+	import MetaSetupGuide from '$lib/components/MetaSetupGuide.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Table from '$lib/components/ui/table';
@@ -16,6 +18,7 @@
 	let loading = $state(true);
 	let loaded = $state(false);
 	let showAddModal = $state(false);
+	let showGuide = $state(false);
 	let deletingId = $state<string | null>(null);
 	let deleteStage = $state<1 | 2>(1);
 	let deleteConfirmText = $state('');
@@ -29,12 +32,18 @@
 	let formUsername = $state('');
 	let formAccessToken = $state('');
 	let formExpiresAt = $state(new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16));
-	let formAppId = $state('');
 	let formAppSecret = $state('');
 
 	function formatDate(iso: string | null): string {
 		if (!iso) return '\u2014';
 		return formatDateTz(iso);
+	}
+
+	function needsReconnect(account: Account): boolean {
+		if (!account.is_active || account.token_status === 'expired') return true;
+		if (!account.expires_at) return false;
+		const t = new Date(account.expires_at.includes('T') ? account.expires_at : account.expires_at.replace(' ', 'T') + 'Z').getTime();
+		return Number.isFinite(t) && t < Date.now();
 	}
 
 	function statusFromAccount(account: Account): string {
@@ -123,7 +132,6 @@
 		formUsername = '';
 		formAccessToken = '';
 		formExpiresAt = '';
-		formAppId = '';
 		formAppSecret = '';
 	}
 
@@ -139,7 +147,6 @@
 				...(formUsername && { username: formUsername }),
 				access_token: formAccessToken,
 				expires_at: new Date(formExpiresAt).toISOString(),
-				...(formAppId && { app_id: formAppId }),
 				...(formAppSecret && { app_secret: formAppSecret }),
 			});
 			toast('Account added', 'success');
@@ -153,47 +160,160 @@
 		}
 	}
 
-	async function handleConnectThreads() {
+	// ── Per-account Threads app credentials + OAuth connect ──
+	// Every account is connected through its own Threads app (App ID + Secret).
+	let oauthCfg = $state<OAuthConfig | null>(null);
+	let connecting = $state(false);
+	let copied = $state(false);
+
+	// Add-account form (credentials for the NEW account).
+	let newAppId = $state('');
+	let newAppSecret = $state('');
+	let copyFromId = $state(''); // existing account whose saved app to reuse
+
+	// Edit-credentials dialog (an EXISTING account).
+	let editingAccount = $state<Account | null>(null);
+	let editAppId = $state('');
+	let editAppSecret = $state('');
+	let savingApp = $state(false);
+
+	// Server-derived URI when available; otherwise the origin the user is on.
+	const redirectUri = $derived(
+		oauthCfg?.redirect_uri || (typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : ''),
+	);
+	const accountsWithApp = $derived(accounts.filter((a) => a.app_id && a.app_secret_set));
+	const copySource = $derived(accounts.find((a) => a.id === copyFromId) ?? null);
+	const canConnectNew = $derived(
+		!!newAppId.trim() && (!!newAppSecret || (!!copySource && copySource.app_id === newAppId.trim())),
+	);
+
+	async function loadOAuthConfig() {
 		try {
-			// Try server-side OAuth config first
-			const config = await getOAuthConfig();
-			if (config.app_id) {
-				if (!config.secret_configured) {
-					toast('Set App Secret in Settings first', 'error');
-					return;
-				}
-				// #237 CSRF protection: issue a one-time state token and append it
-				// to the authorize URL. Threads echoes it back on the callback,
-				// where the exchange endpoint validates + consumes it.
-				const { state } = await createOAuthState();
-				if (config.authorize_url) {
-					window.location.href = `${config.authorize_url}&state=${encodeURIComponent(state)}`;
-					return;
-				}
-				// Fallback: construct authorize URL client-side using known redirect URI.
-				// This handles cases where the backend cannot derive redirect_uri
-				// (e.g. Host header is internal Docker hostname).
-				const redirectUri = `${window.location.origin}/auth/callback`;
-				const authorizeUrl = `https://threads.net/oauth/authorize?client_id=${encodeURIComponent(config.app_id)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=threads_basic,threads_content_publish,threads_manage_replies,threads_manage_mentions,threads_keyword_search,threads_profile_discovery,threads_share_to_instagram,threads_location_tagging&response_type=code&state=${encodeURIComponent(state)}`;
-				window.location.href = authorizeUrl;
-				return;
-			}
-			// Fallback: no server config
-			toast('Set Threads App ID and Secret in Settings first', 'error');
-		} catch {
-			toast('Failed to get OAuth config. Set credentials in Settings.', 'error');
+			oauthCfg = await getOAuthConfig();
+		} catch (e: any) {
+			toast(e.message || 'Failed to load OAuth settings', 'error');
 		}
+	}
+
+	function openGuide(fromAdd = false) {
+		if (fromAdd) showAddModal = false;
+		showGuide = true;
+		if (!oauthCfg) loadOAuthConfig();
+	}
+
+	function openAddModal() {
+		showGuide = false;
+		newAppId = '';
+		newAppSecret = '';
+		copyFromId = '';
+		showAddModal = true;
+		loadOAuthConfig();
+	}
+
+	function pickCopyFrom(id: string) {
+		copyFromId = id;
+		const src = accounts.find((a) => a.id === id);
+		newAppId = src?.app_id ?? '';
+		newAppSecret = '';
+	}
+
+	function openEditApp(account: Account) {
+		editingAccount = account;
+		editAppId = account.app_id ?? '';
+		editAppSecret = '';
+	}
+
+	async function saveAccountApp() {
+		if (!editingAccount) return;
+		if (!editAppId.trim()) {
+			toast('App ID is required', 'error');
+			return;
+		}
+		if (!editAppSecret && !editingAccount.app_secret_set) {
+			toast('App Secret is required', 'error');
+			return;
+		}
+		savingApp = true;
+		try {
+			const updated: any = await updateAccount(editingAccount.id, {
+				app_id: editAppId.trim(),
+				...(editAppSecret && { app_secret: editAppSecret }),
+			});
+			if (updated?.error) throw new Error(updated.error);
+			accounts = accounts.map((a) =>
+				a.id === editingAccount!.id
+					? { ...a, app_id: updated.app_id ?? editAppId.trim(), app_secret_set: updated.app_secret_set ?? true }
+					: a,
+			);
+			toast(`Threads app saved for @${editingAccount.username}`, 'success');
+			editingAccount = null;
+			editAppSecret = '';
+		} catch (e: any) {
+			toast(e.message || 'Failed to save Threads app', 'error');
+		} finally {
+			savingApp = false;
+		}
+	}
+
+	async function copyRedirectUri() {
+		try {
+			await navigator.clipboard.writeText(redirectUri);
+			copied = true;
+			setTimeout(() => (copied = false), 1500);
+		} catch {
+			toast('Copy failed — select the URI and copy manually', 'error');
+		}
+	}
+
+	async function startOAuth(params: { app_id?: string; app_secret?: string; account_id?: string }) {
+		connecting = true;
+		try {
+			if (!oauthCfg) await loadOAuthConfig();
+			const { authorize_url } = await createAuthorizeUrl({ redirect_uri: redirectUri, ...params });
+			window.location.href = authorize_url;
+		} catch (e: any) {
+			toast(e.message || 'Failed to start Threads connection', 'error');
+			connecting = false;
+		}
+	}
+
+	function handleConnectNew() {
+		return startOAuth({
+			app_id: newAppId.trim(),
+			...(newAppSecret && { app_secret: newAppSecret }),
+			...(copyFromId && { account_id: copyFromId }),
+		});
+	}
+
+	// Reconnect uses THIS account's saved Threads app; the exchange upserts by
+	// user_id so the account is renewed in place.
+	function handleReconnect(account: Account) {
+		if (!account.app_id || !account.app_secret_set) {
+			toast('Set this account\'s Threads App ID and Secret first', 'error');
+			openEditApp(account);
+			return;
+		}
+		return startOAuth({ account_id: account.id });
 	}
 
 	// Fetch once on mount — avoid infinite $effect re-runs
 	$effect(() => {
-		if (!loaded) loadAccounts();
+		if (!loaded) {
+			loadAccounts();
+			loadOAuthConfig();
+		}
 	});
 </script>
 
 <PageHeader title="Accounts">
 	{#snippet action()}
-		<Button variant="default" onclick={() => (showAddModal = true)}>Add Account</Button>
+		<div class="row-gap-xs">
+			<Button variant="outline" onclick={() => openGuide()} aria-label="Meta setup guide" title="Where do I find the App ID, secret and redirect URI?">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+				Setup guide
+			</Button>
+			<Button variant="default" onclick={openAddModal}>Add Account</Button>
+		</div>
 	{/snippet}
 </PageHeader>
 
@@ -226,6 +346,7 @@
 					<Table.Head>Account</Table.Head>
 					<Table.Head>Followers</Table.Head>
 					<Table.Head>Status</Table.Head>
+					<Table.Head>Threads app</Table.Head>
 					<Table.Head class="hidden md:table-cell">Token</Table.Head>
 					<Table.Head class="hidden md:table-cell">Created</Table.Head>
 					<Table.Head>Actions</Table.Head>
@@ -276,6 +397,17 @@
 							{/if}
 						</Table.Cell>
 						<Table.Cell><StatusBadge status={statusFromAccount(account)} /></Table.Cell>
+						<Table.Cell>
+							<div class="app-cell">
+								{#if account.app_id}
+									<code class="app-id" data-testid="account-app-id">{account.app_id}</code>
+									<span class="text-xs-muted">{account.app_secret_set ? 'secret saved' : 'secret missing'}</span>
+								{:else}
+									<span class="text-xs-muted">Not set</span>
+								{/if}
+								<Button variant="outline" size="sm" onclick={() => openEditApp(account)}>{account.app_id ? 'Edit' : 'Set up'}</Button>
+							</div>
+						</Table.Cell>
 						<Table.Cell class="hidden md:table-cell">
 						<span class="tabular-nums text-sm">
 							{#if account.expires_at}
@@ -296,6 +428,9 @@
 								>
 									{refreshingId === account.id ? '…' : 'Refresh'}
 								</Button>
+								{#if needsReconnect(account)}
+									<Button variant="default" size="sm" disabled={connecting} onclick={() => handleReconnect(account)}>Reconnect</Button>
+								{/if}
 								<Button variant="ghost" size="sm" onclick={() => { deletingId = account.id; deleteStage = 1; deleteConfirmText = ''; deleteUsername = account.username; }}>
 									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sm-danger">
 														<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
@@ -316,50 +451,120 @@
 		<Dialog.Content class="confirm-dialog" style="max-width:32rem;" aria-describedby={undefined}>
 			<Dialog.Title class="text-base font-semibold mb-xs">Add Account</Dialog.Title>
 
-			<!-- OAuth connect -->
-			<button
-				type="button"
-				class="oauth-connect-btn"
-				onclick={() => { showAddModal = false; handleConnectThreads(); }}
-			>
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-					<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-				</svg>
-				Connect with Threads
-			</button>
+			<p class="text-hint mb-sm">Connect through Threads — no token to copy from the Meta developer page.</p>
 
-			<div class="oauth-divider"><span>or add manually</span></div>
+			<!-- Step 1: this account's Threads app -->
+			<section class="connect-step" aria-labelledby="step-creds">
+				<h3 id="step-creds" class="connect-step-title"><span class="step-num">1</span> This account's Threads app</h3>
+				{#if accountsWithApp.length > 0}
+					<div class="form-group mb-sm">
+						<label class="form-label" for="copy_from">Reuse an existing account's app <span class="text-hint">(optional)</span></label>
+						<select id="copy_from" class="form-select" value={copyFromId} onchange={(e) => pickCopyFrom((e.currentTarget as HTMLSelectElement).value)} disabled={connecting}>
+							<option value="">Use a different app…</option>
+							{#each accountsWithApp as a (a.id)}
+								<option value={a.id}>@{a.username} — {a.app_id}</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
+				<div class="form-group mb-sm">
+					<label class="form-label" for="new_app_id">Threads App ID</label>
+					<Input id="new_app_id" type="text" bind:value={newAppId} placeholder="Threads app ID (not the main Meta app ID)" disabled={connecting} oninput={() => { if (copySource && copySource.app_id !== newAppId.trim()) copyFromId = ''; }} />
+				</div>
+				<div class="form-group mb-sm">
+					<label class="form-label" for="new_app_secret">Threads App Secret</label>
+					<Input id="new_app_secret" type="password" bind:value={newAppSecret} autocomplete="off" placeholder={copySource ? `Using the saved secret from @${copySource.username}` : 'Threads app secret'} disabled={connecting} />
+				</div>
+				<p class="text-hint">Meta dashboard → Use cases → Access the Threads API → Customize → Settings. <button type="button" class="guide-link" onclick={() => openGuide(true)}>Open the setup guide</button></p>
+			</section>
 
-			<form onsubmit={(e) => { e.preventDefault(); handleAddAccount(); }}>
+			<!-- Step 2: redirect URI to whitelist -->
+			<section class="connect-step" aria-labelledby="step-redirect">
+				<h3 id="step-redirect" class="connect-step-title"><span class="step-num">2</span> Allow this redirect URI in Meta</h3>
+				<p class="text-hint mb-xs">Add it to <strong>Redirect Callback URLs</strong> on the same Meta Settings page. <button type="button" class="guide-link" onclick={() => openGuide(true)}>Where exactly?</button></p>
+				<div class="redirect-row">
+					<code class="redirect-uri" data-testid="redirect-uri">{redirectUri}</code>
+					<Button type="button" variant="outline" size="sm" onclick={copyRedirectUri}>{copied ? 'Copied' : 'Copy'}</Button>
+				</div>
+			</section>
+
+			<!-- Step 3: connect -->
+			<section class="connect-step" aria-labelledby="step-connect">
+				<h3 id="step-connect" class="connect-step-title"><span class="step-num">3</span> Authorize</h3>
+				<button
+					type="button"
+					class="oauth-connect-btn"
+					disabled={connecting || !canConnectNew}
+					onclick={handleConnectNew}
+				>
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+					</svg>
+					{connecting ? 'Redirecting to Threads…' : 'Connect with Threads'}
+				</button>
+				{#if !canConnectNew}<p class="text-hint mt-xs">Enter the App ID and Secret in step 1 to enable this.</p>{/if}
+			</section>
+
+			<details class="manual-add">
+				<summary>Advanced: add with an access token instead</summary>
+				<form onsubmit={(e) => { e.preventDefault(); handleAddAccount(); }}>
+					<div class="form-group mb-sm">
+						<label class="form-label" for="access_token">Access Token</label>
+						<Input id="access_token" type="password" bind:value={formAccessToken} placeholder="Long-lived access token" disabled={submitting} />
+					</div>
+					<div class="form-group mb-sm">
+						<label class="form-label" for="username">Username <span class="text-hint">(optional)</span></label>
+						<Input id="username" type="text" bind:value={formUsername} placeholder="e.g. @username" disabled={submitting} />
+					</div>
+					<div class="form-group mb-sm">
+						<label class="form-label" for="user_id">User ID <span class="text-hint">(optional)</span></label>
+						<Input id="user_id" type="text" bind:value={formUserId} placeholder="e.g. 1234567890" disabled={submitting} />
+					</div>
+					<div class="form-group mb-sm">
+						<label class="form-label" for="expires_at">Expires At <span class="text-hint">(optional)</span></label>
+						<Input id="expires_at" type="datetime-local" bind:value={formExpiresAt} disabled={submitting} />
+					</div>
+					<div class="form-group mb-sm">
+						<label class="form-label" for="app_secret">App Secret <span class="text-hint">(only to upgrade a short-lived token)</span></label>
+						<Input id="app_secret" type="password" bind:value={formAppSecret} placeholder="Threads App Secret" disabled={submitting} />
+					</div>
+					<div class="confirm-actions">
+						<Button type="submit" variant="outline" size="sm" disabled={submitting}>{submitting ? 'Adding…' : 'Add with token'}</Button>
+					</div>
+				</form>
+			</details>
+
+			<div class="confirm-actions">
+				<Button type="button" variant="ghost" size="sm" onclick={() => (showAddModal = false)}>Close</Button>
+			</div>
+		</Dialog.Content>
+	</Dialog.Root>
+{/if}
+
+{#if showGuide}
+	<MetaSetupGuide {redirectUri} onclose={() => (showGuide = false)} onadd={openAddModal} />
+{/if}
+
+<!-- Edit an account's Threads app -->
+{#if editingAccount}
+	<Dialog.Root open onOpenChange={(o) => { if (!o) editingAccount = null; }}>
+		<Dialog.Content class="confirm-dialog" style="max-width:28rem;" aria-describedby={undefined}>
+			<Dialog.Title class="text-base font-semibold mb-xs">Threads app for @{editingAccount.username}</Dialog.Title>
+			<p class="text-hint mb-sm">Used when this account is connected or reconnected. Each account can use a different Threads app. <button type="button" class="guide-link" onclick={() => { editingAccount = null; openGuide(); }}>Where do I find these?</button></p>
+			<form onsubmit={(e) => { e.preventDefault(); saveAccountApp(); }}>
 				<div class="form-group mb-sm">
-					<label class="form-label" for="user_id">User ID <span class="text-hint">(optional)</span></label>
-					<Input id="user_id" type="text" bind:value={formUserId} placeholder="e.g. 1234567890" disabled={submitting} />
+					<label class="form-label" for="edit_app_id">Threads App ID</label>
+					<Input id="edit_app_id" type="text" bind:value={editAppId} placeholder="Threads app ID" disabled={savingApp} />
 				</div>
 				<div class="form-group mb-sm">
-					<label class="form-label" for="username">Username <span class="text-hint">(optional)</span></label>
-					<Input id="username" type="text" bind:value={formUsername} placeholder="e.g. @username" disabled={submitting} />
-				</div>
-				<div class="form-group mb-sm">
-					<label class="form-label" for="access_token">Access Token</label>
-					<Input id="access_token" type="password" bind:value={formAccessToken} placeholder="Long-lived access token" disabled={submitting} />
-				</div>
-				<div class="form-group mb-sm">
-					<label class="form-label" for="expires_at">Expires At <span class="text-hint">(optional)</span></label>
-					<Input id="expires_at" type="datetime-local" bind:value={formExpiresAt} disabled={submitting} />
-				</div>
-				<div class="form-group mb-sm">
-					<label class="form-label" for="app_id">App ID <span class="text-hint">(optional)</span></label>
-					<Input id="app_id" type="text" bind:value={formAppId} placeholder="Facebook App ID" disabled={submitting} />
-				</div>
-				<div class="form-group mb-md">
-					<label class="form-label" for="app_secret">App Secret <span class="text-hint">(optional)</span></label>
-					<Input id="app_secret" type="password" bind:value={formAppSecret} placeholder="Facebook App Secret" disabled={submitting} />
+					<label class="form-label" for="edit_app_secret">Threads App Secret</label>
+					<Input id="edit_app_secret" type="password" bind:value={editAppSecret} autocomplete="off" placeholder={editingAccount.app_secret_set ? 'Leave blank to keep the saved secret' : 'Threads app secret'} disabled={savingApp} />
 				</div>
 				<div class="confirm-actions">
-					<Button type="button" variant="outline" size="sm" onclick={() => (showAddModal = false)}>Cancel</Button>
-					<Button type="submit" variant="default" size="sm" disabled={submitting}>{submitting ? 'Adding…' : 'Add Account'}</Button>
+					<Button type="button" variant="ghost" size="sm" onclick={() => (editingAccount = null)} disabled={savingApp}>Cancel</Button>
+					<Button type="submit" variant="default" size="sm" disabled={savingApp}>{savingApp ? 'Saving…' : 'Save'}</Button>
 				</div>
-		</form>
+			</form>
 		</Dialog.Content>
 	</Dialog.Root>
 {/if}
@@ -430,18 +635,15 @@
 		background: oklch(50% 0.22 260);
 	}
 
-	.oauth-divider {
-		display: flex;
-		align-items: center;
-		gap: var(--space-sm);
-		margin-bottom: var(--space-md);
-		font-size: var(--text-xs);
-		color: var(--color-muted);
-	}
-	.oauth-divider::before,
-	.oauth-divider::after {
-		content: '';
-		flex: 1;
-		border-top: var(--rule-subtle);
-	}
+	.guide-link { background: none; border: 0; padding: 0; color: var(--color-accent); cursor: pointer; text-decoration: underline; font: inherit; }
+	.app-cell { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+	.app-id { font-size: var(--text-xs); }
+	.form-select { width: 100%; padding: var(--space-xs) var(--space-sm); background: var(--surface-raised); border: var(--rule-default); border-radius: var(--radius-md); font-size: var(--text-sm); color: inherit; }
+	.connect-step { margin-bottom: var(--space-md); }
+	.connect-step-title { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--text-sm); font-weight: 600; margin-bottom: var(--space-xs); }
+	.step-num { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--color-accent); color: var(--color-on-accent, #fff); font-size: var(--text-xs); }
+	.redirect-row { display: flex; align-items: center; gap: var(--space-xs); }
+	.redirect-uri { flex: 1; min-width: 0; overflow-wrap: anywhere; padding: var(--space-xs) var(--space-sm); background: var(--surface-raised); border: var(--rule-default); border-radius: var(--radius-md); font-size: var(--text-xs); }
+	.manual-add { margin-bottom: var(--space-md); font-size: var(--text-sm); }
+	.manual-add summary { cursor: pointer; color: var(--color-muted); margin-bottom: var(--space-sm); }
 </style>

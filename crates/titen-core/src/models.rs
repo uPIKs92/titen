@@ -34,6 +34,12 @@ pub struct UpdateAccount {
     pub access_token: Option<String>,
     pub expires_at: Option<String>,
     pub is_active: Option<bool>,
+    /// Threads app ID for this account's OAuth connect/reconnect.
+    #[serde(default)]
+    pub app_id: Option<String>,
+    /// Threads app secret; blank/omitted keeps the stored one.
+    #[serde(default)]
+    pub app_secret: Option<String>,
 }
 
 impl Account {

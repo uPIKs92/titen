@@ -48,6 +48,18 @@ pub async fn oauth_exchange(
             .app_secret
             .as_deref()
             .is_some_and(|secret| !secret.is_empty());
+    // Per-account app credentials ride on the state row (set by authorize-url).
+    // Read before consuming: consumption deletes the row.
+    let state_app = if has_explicit_credentials {
+        None
+    } else {
+        state
+            .store
+            .get_oauth_state_app(&input.state)
+            .await
+            .ok()
+            .flatten()
+    };
     let state_result = if !has_explicit_credentials {
         let required_key = state.api_key.clone().unwrap_or_default();
         let caller = if required_key.is_empty() {
@@ -72,9 +84,11 @@ pub async fn oauth_exchange(
         return (status, Json(body));
     }
 
-    // Resolve app_id: prefer request field, fall back to DB
+    // Resolve app_id: request field, then the connection's own app (state),
+    // then the legacy instance-wide setting.
     let app_id = match input.app_id.as_deref() {
         Some(id) if !id.is_empty() => id.to_string(),
+        _ if state_app.is_some() => state_app.as_ref().map(|(id, _)| id.clone()).unwrap_or_default(),
         _ => match state.store.get_app_settings().await {
             Ok(s) => match s.threads_app_id {
                 Some(id) if !id.is_empty() => id,
@@ -109,6 +123,7 @@ pub async fn oauth_exchange(
     // Resolve app_secret: prefer request field, fall back to DB (decrypted)
     let app_secret = match input.app_secret.as_deref() {
         Some(s) if !s.is_empty() => s.to_string(),
+        _ if state_app.is_some() => state_app.as_ref().map(|(_, s)| s.clone()).unwrap_or_default(),
         _ => match state.store.get_threads_app_secret().await {
             Ok(Some(s)) => s,
             Ok(None) => {
@@ -221,7 +236,8 @@ pub async fn oauth_exchange(
         access_token: long_token,
         expires_at,
         app_id: Some(app_id.clone()),
-        app_secret: None,
+        // Saved per account so reconnect/edit use this account's own app.
+        app_secret: Some(app_secret.clone()),
     };
 
     match state.store.upsert_account(&create_input).await {
@@ -239,6 +255,8 @@ pub async fn oauth_exchange(
                         "id": account.id,
                         "username": account.username,
                         "user_id": account.user_id,
+                        "app_id": account.app_id,
+                        "app_secret_set": account.app_secret.as_deref().is_some_and(|s| !s.is_empty()),
                         "is_active": account.is_active,
                         "expires_at": account.expires_at,
                         "token_status": account.token_status(),

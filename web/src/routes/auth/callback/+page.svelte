@@ -26,7 +26,7 @@
 			// never initiated by this instance (login CSRF vector).
 			status = 'error';
 			errorMessage =
-				'Missing OAuth state parameter. Please restart the connection from the Accounts page.';
+				'Missing OAuth state parameter. Please restart the connection from Accounts → Add Account.';
 			return;
 		}
 
@@ -91,7 +91,6 @@
 			</svg>
 			<p class="callback-text">{errorMessage}</p>
 			<Button variant="outline" onclick={() => goto('/admin/accounts')}>Back to Accounts</Button>
-			<Button variant="outline" onclick={() => goto('/admin/settings')}>Open Settings</Button>
 		</div>
 	{/if}
 </div>

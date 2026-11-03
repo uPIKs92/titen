@@ -108,6 +108,53 @@ impl Store {
             .map_err(Into::into)
     }
 
+    /// Like [`insert_oauth_state`], additionally storing the Threads app
+    /// credentials to use for this connection (secret encrypted at rest).
+    pub async fn insert_oauth_state_with_app(
+        &self,
+        token: &str,
+        bound_key: &str,
+        expires_at_epoch: i64,
+        app_id: &str,
+        app_secret: &str,
+    ) -> Result<()> {
+        let enc_secret = self.encrypt_field(app_secret)?;
+        sqlx::query(
+            "INSERT INTO oauth_states (token, bound_key, expires_at, app_id, app_secret_enc) VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(token)
+        .bind(bound_key)
+        .bind(expires_at_epoch)
+        .bind(app_id)
+        .bind(enc_secret)
+        .execute(&self.pool)
+        .await
+        .map(|_| ())
+        .map_err(Into::into)
+    }
+
+    /// Read the app credentials stored on an unexpired state token, without
+    /// consuming it. `None` when the token has none (or doesn't exist).
+    pub async fn get_oauth_state_app(&self, token: &str) -> Result<Option<(String, String)>> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        let row: Option<(Option<String>, Option<String>)> = sqlx::query_as(
+            "SELECT app_id, app_secret_enc FROM oauth_states WHERE token = ? AND expires_at >= ?",
+        )
+        .bind(token)
+        .bind(now)
+        .fetch_optional(&self.pool)
+        .await?;
+        match row {
+            Some((Some(app_id), Some(enc))) if !app_id.is_empty() && !enc.is_empty() => {
+                Ok(Some((app_id, self.decrypt_field(&enc)?)))
+            }
+            _ => Ok(None),
+        }
+    }
+
     /// Delete expired state tokens. Best-effort; called opportunistically.
     pub async fn prune_expired_oauth_states(&self) -> Result<()> {
         let now = std::time::SystemTime::now()
@@ -447,6 +494,20 @@ impl Store {
                 }
             }
         }
+        // 016 — per-connection Threads app credentials on oauth_states; "duplicate column"-tolerant
+        for stmt in split_sql_statements(include_str!(
+            "../../titen-api/migrations/016_oauth_state_app.sql"
+        )) {
+            let result = sqlx::query(&stmt).execute(&self.pool).await;
+            if let Err(e) = result {
+                let msg = e.to_string();
+                if !msg.contains("duplicate column") {
+                    return Err(TitenError::DatabaseError(format!(
+                        "migration 016 failed: {msg}"
+                    )));
+                }
+            }
+        }
 
         // 017 — thread bundles: bundle_id/bundle_seq/bundle_total columns
         for stmt in split_sql_statements(include_str!(
@@ -735,6 +796,25 @@ impl Store {
             )
             .bind(expires_at)
             .bind(is_active)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        }
+
+        // Per-account Threads app credentials (used by the OAuth connect flow).
+        if let Some(app_id) = input.app_id.as_deref().filter(|v| !v.trim().is_empty()) {
+            sqlx::query("UPDATE accounts SET app_id = ?, updated_at = datetime('now') WHERE id = ?")
+                .bind(app_id.trim())
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(secret) = input.app_secret.as_deref().filter(|v| !v.is_empty()) {
+            let enc = self.encrypt_field(secret)?;
+            sqlx::query(
+                "UPDATE accounts SET app_secret = ?, updated_at = datetime('now') WHERE id = ?",
+            )
+            .bind(enc)
             .bind(id)
             .execute(&self.pool)
             .await?;

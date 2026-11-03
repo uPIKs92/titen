@@ -15,6 +15,7 @@ export default defineConfig({
 		})
 	],
 	server: {
+		allowedHosts: ['titen.piyuralabs.com'],
 		proxy: {
 			'/api': {
 				target: 'http://localhost:7845',

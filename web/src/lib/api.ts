@@ -455,6 +455,29 @@ export const getAccountInsights = (accountId: string, params?: {
 export const createOAuthState = (): Promise<{ state: string }> =>
 	request<{ state: string }>('/oauth/state', { method: 'POST' });
 
+export interface AuthorizeUrlResult {
+	authorize_url: string;
+	state: string;
+	redirect_uri: string;
+	expires_in: number;
+}
+
+/**
+ * One call: issues a CSRF state and returns the ready-to-open Threads authorize URL.
+ * Each account has its own Threads app: pass app_id/app_secret, or account_id to
+ * reconnect / reuse that account's saved app.
+ */
+export const createAuthorizeUrl = (params: {
+	redirect_uri?: string;
+	app_id?: string;
+	app_secret?: string;
+	account_id?: string;
+}): Promise<AuthorizeUrlResult> =>
+	request<AuthorizeUrlResult>('/oauth/authorize-url', {
+		method: 'POST',
+		body: JSON.stringify(params),
+	});
+
 export const oauthExchange = (data: {
 	code: string;
 	redirect_uri: string;

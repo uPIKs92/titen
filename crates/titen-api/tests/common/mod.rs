@@ -93,6 +93,10 @@ pub fn test_app(state: AppState) -> Router {
             "/api/schedules/upcoming",
             get(routes::schedules::list_upcoming),
         )
+        .route(
+            "/api/oauth/authorize-url",
+            post(routes::oauth_state::authorize_url),
+        )
         .with_state(state)
 }
 

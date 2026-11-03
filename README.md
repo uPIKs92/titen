@@ -232,6 +232,7 @@ X-API-Key: your-key-here
 
 | Method | Path | Description |
 |---|---|---|
+| POST | `/api/oauth/authorize-url` | Issue state + return a ready-to-open Threads authorize URL (no manual token) |
 | POST | `/api/oauth/exchange` | Exchange Threads OAuth code for access token |
 
 ### Request/Response Format
@@ -298,6 +299,8 @@ titen serve [--host 0.0.0.0] [--port 7845] [--mcp]
 
 ```bash
 titen account list
+titen account connect --app-id <ID> --app-secret <SECRET>   # each account has its own Threads app
+titen account connect --account <ACCOUNT_ID>                # reconnect / reuse an account's app
 titen account add <username> --access-token <TOKEN> [--user-id <ID>] [--expires-at <ISO8601>]
 titen account remove <id>
 titen account refresh <id>
