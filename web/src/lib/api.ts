@@ -94,6 +94,27 @@ export class ApiError extends Error {
 	}
 }
 
+// ── MCP (agent integration) ──
+export interface McpTool {
+	name: string;
+	description: string;
+	annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean };
+}
+
+/** Call the MCP endpoint (POST /api/mcp) with the current session. */
+export async function mcpRequest<T>(method: string, params?: Record<string, unknown>): Promise<T> {
+	const res = await fetch(`${BASE}/mcp`, {
+		method: 'POST',
+		credentials: 'same-origin',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+	});
+	if (!res.ok) throw new ApiError(res.status, res.statusText, `API ${res.status}`);
+	const json = await res.json();
+	if (json.error) throw new ApiError(400, 'MCP error', json.error.message ?? 'MCP error');
+	return json.result as T;
+}
+
 // ── Health ──
 export const getHealth = (): Promise<HealthResponse> =>
 	request<HealthResponse>('/health');

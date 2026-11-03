@@ -7,10 +7,11 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Field, FieldContent, FieldDescription, FieldLabel } from '$lib/components/ui/field';
+	import McpSettings from '$lib/components/McpSettings.svelte';
 	import type { HealthResponse } from '$lib/types';
 
 	// ── State ──
-	let activeTab = $state<'general' | 'danger'>('general');
+	let activeTab = $state<'general' | 'agents' | 'danger'>('general');
 	let saving = $state(false);
 	let loading = $state(false);
 
@@ -136,7 +137,8 @@
 >
 	<Tabs.List>
 		<Tabs.Trigger value="general">General</Tabs.Trigger>
-				<Tabs.Trigger value="danger">Danger Zone</Tabs.Trigger>
+		<Tabs.Trigger value="agents">Agents (MCP)</Tabs.Trigger>
+		<Tabs.Trigger value="danger">Danger Zone</Tabs.Trigger>
 	</Tabs.List>
 
 	<!-- ── General ── -->
@@ -229,6 +231,11 @@
 				</div>
 			{/if}
 		</section>
+	</Tabs.Content>
+
+	<!-- ── Agents (MCP) ── -->
+	<Tabs.Content value="agents">
+		<McpSettings />
 	</Tabs.Content>
 
 	<!-- ── Danger Zone ── -->
