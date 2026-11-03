@@ -408,6 +408,40 @@ titen media delete <id>
 
 Titen ships with an MCP server (`titen-mcp`) for integration with AI tools.
 
+### Remote agents (HTTP) — Hermes, Claude, Cursor, any MCP client
+
+The API server speaks MCP over Streamable HTTP at `POST /api/mcp`, so agents on
+other hosts or containers need no access to the database file. It uses the same
+tools as `titen-mcp`, the server's own `TITEN_ENCRYPTION_KEY`, and each account's
+saved Threads app.
+
+```json
+{
+  "mcpServers": {
+    "titen": {
+      "url": "https://titen.example.com/api/mcp",
+      "headers": { "X-API-Key": "<TITEN_API_KEY>" }
+    }
+  }
+}
+```
+
+Quick check:
+
+```bash
+curl -s -X POST "$TITEN_URL/api/mcp" \
+  -H "X-API-Key: $TITEN_API_KEY" -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+- Stateless: single or batched (max 20) JSON-RPC requests, JSON responses;
+  notification-only posts return `202`. `GET`/`DELETE` return `405` (no SSE streams).
+- Auth is the normal API key (`X-API-Key`). The key grants every tool, including
+  `create_post` and `delete_post` (see the tool annotations), so give agents a
+  dedicated deployment key and keep the endpoint behind HTTPS.
+- Prefer stdio (`titen-mcp`) only when the agent runs on the same machine. If the
+  database holds encrypted tokens, set `TITEN_ENCRYPTION_KEY` for that process too.
+
 ### Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `~/.config/Claude/claude_desktop_config.json` (Linux):

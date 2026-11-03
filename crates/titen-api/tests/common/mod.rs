@@ -97,6 +97,12 @@ pub fn test_app(state: AppState) -> Router {
             "/api/oauth/authorize-url",
             post(routes::oauth_state::authorize_url),
         )
+        .route(
+            "/api/mcp",
+            post(routes::mcp::post_mcp)
+                .get(routes::mcp::method_not_allowed)
+                .delete(routes::mcp::method_not_allowed),
+        )
         .with_state(state)
 }
 

@@ -233,6 +233,7 @@ X-API-Key: your-key-here
 | Method | Path | Description |
 |---|---|---|
 | POST | `/api/oauth/authorize-url` | Issue state + return a ready-to-open Threads authorize URL (no manual token) |
+| POST | `/api/mcp` | MCP over Streamable HTTP for remote agents (JSON-RPC; same tools as `titen-mcp`) |
 | POST | `/api/oauth/exchange` | Exchange Threads OAuth code for access token |
 
 ### Request/Response Format

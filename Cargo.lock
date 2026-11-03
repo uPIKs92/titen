@@ -2414,6 +2414,7 @@ dependencies = [
  "sqlx",
  "subtle",
  "titen-core",
+ "titen-mcp",
  "tokio",
  "tower",
  "tower-http",

@@ -450,6 +450,12 @@ pub async fn serve(
             get(routes::media::list_media).post(routes::media::upload_media),
         )
         .route("/api/media/{id}", delete(routes::media::delete_media))
+        .route(
+            "/api/mcp",
+            post(routes::mcp::post_mcp)
+                .get(routes::mcp::method_not_allowed)
+                .delete(routes::mcp::method_not_allowed),
+        )
         .route("/api/oauth/state", post(routes::oauth_state::create_state))
         .route(
             "/api/oauth/authorize-url",
