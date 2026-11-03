@@ -216,26 +216,4 @@ pub async fn get_oauth_config(
 }
 
 /// Threads authorize URL (without `state`) for the given app and redirect URI.
-pub(crate) fn build_authorize_url(app_id: &str, redirect_uri: &str) -> String {
-    format!(
-        "https://threads.net/oauth/authorize?client_id={}&redirect_uri={}&scope=threads_basic,threads_content_publish,threads_manage_replies,threads_manage_mentions,threads_keyword_search,threads_profile_discovery,threads_share_to_instagram,threads_location_tagging&response_type=code",
-        urlencode(app_id),
-        urlencode(redirect_uri),
-    )
-}
-
-/// Minimal percent-encoder for OAuth URL parameters.
-pub(crate) fn urlencode(s: &str) -> String {
-    let mut result = String::with_capacity(s.len() * 3);
-    for byte in s.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
-                result.push(byte as char);
-            }
-            _ => {
-                result.push_str(&format!("%{:02X}", byte));
-            }
-        }
-    }
-    result
-}
+pub(crate) use titen_core::oauth_connect::build_authorize_url;

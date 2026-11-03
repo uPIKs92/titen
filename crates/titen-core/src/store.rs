@@ -539,6 +539,20 @@ impl Store {
             }
         }
 
+        // 019 — per-agent API keys (hashed, scoped)
+        for stmt in split_sql_statements(include_str!(
+            "../../titen-api/migrations/019_agent_keys.sql"
+        )) {
+            if let Err(e) = sqlx::query(&stmt).execute(&self.pool).await {
+                let msg = e.to_string();
+                if !msg.contains("already exists") {
+                    return Err(TitenError::DatabaseError(format!(
+                        "migration 019 (agent_keys) failed: {msg}"
+                    )));
+                }
+            }
+        }
+
         // 019 (Rust side) — purge id-less comment rows superseded by an
         // attributed twin (pre-#262 residue, #266). Idempotent.
         let purged = self.cleanup_superseded_comments().await?;

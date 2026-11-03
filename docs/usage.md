@@ -438,9 +438,19 @@ curl -s -X POST "$TITEN_URL/api/mcp" \
 
 - Stateless: single or batched (max 20) JSON-RPC requests, JSON responses;
   notification-only posts return `202`. `GET`/`DELETE` return `405` (no SSE streams).
-- Auth is the normal API key (`X-API-Key`). The key grants every tool, including
-  `create_post` and `delete_post` (see the tool annotations), so give agents a
-  dedicated deployment key and keep the endpoint behind HTTPS.
+- Auth is an API key in `X-API-Key`. Create one **per agent** under
+  **Settings → Agents (MCP) → Agent keys** (`tk_…`, shown once, stored hashed,
+  individually revocable, with a "last used" time). The master `TITEN_API_KEY`
+  still works and has full access. Keep the endpoint behind HTTPS.
+
+  | Key | MCP tools | REST API |
+  |-----|-----------|----------|
+  | **Read-only** | only read-only tools are listed; write tools are refused | `GET` only (not `check-tokens`) |
+  | **Read & write** | all tools, including `create_post`, `schedule_post`, `connect_account` | everything except key/settings management |
+
+  Neither agent scope can manage keys or instance settings. `POST /api/agent-keys`
+  `{"name","scope":"read|write"}`, `GET /api/agent-keys`, `DELETE /api/agent-keys/{id}`
+  are master-key only.
 - Prefer stdio (`titen-mcp`) only when the agent runs on the same machine. If the
   database holds encrypted tokens, set `TITEN_ENCRYPTION_KEY` for that process too.
 
@@ -478,7 +488,7 @@ Add to your MCP settings (`Settings → MCP`):
 }
 ```
 
-### Available MCP Tools (29)
+### Available MCP Tools (30)
 
 | Tool | Description |
 |------|-------------|
@@ -486,7 +496,8 @@ Add to your MCP settings (`Settings → MCP`):
 | `get_user_profile` | Fetch a Threads user's profile from the Threads API |
 | `get_publishing_limit` | Fetch an account's Threads publishing quota (daily post limit, etc.) |
 | `create_post` | Publish a post to Threads immediately: TEXT, IMAGE, VIDEO or CAROUSEL (`image_urls` or library `media_ids`), optional `reply_to_id`. Validates caption length, https/SSRF-safe media URLs and rate limits |
-| `schedule_post` | Schedule a post for future publishing |
+| `schedule_post` | Schedule a post (TEXT, IMAGE, VIDEO or CAROUSEL, optional `reply_to_id`). Creates a draft; `approve_schedule` releases it. Same validation as `create_post` |
+| `connect_account` | Start connecting a Threads account: returns an authorize URL a human opens to approve; the web UI completes it. Pass `app_id` + `app_secret`, or `account_id` to reconnect / reuse a saved app |
 | `list_schedules` | List scheduled posts |
 | `cancel_schedule` | Cancel a scheduled post |
 | `refresh_token` | Refresh an account's Threads access token |

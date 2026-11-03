@@ -112,7 +112,7 @@ fn test_tools_list_returns_all_expected_tools() {
 fn test_tools_list_count_matches() {
     let list = tools_list();
     let tools = list["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 29, "Expected 29 tools in tools_list()");
+    assert_eq!(tools.len(), 30, "Expected 30 tools in tools_list()");
 }
 
 #[test]

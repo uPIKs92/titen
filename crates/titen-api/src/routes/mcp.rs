@@ -18,7 +18,7 @@ use axum::{
 };
 use serde_json::{Value, json};
 
-use crate::server::AppState;
+use crate::server::{AgentAccess, AppState};
 
 /// Hard cap on JSON-RPC batch size so one request can't fan out unboundedly.
 const MAX_BATCH: usize = 20;
@@ -26,8 +26,19 @@ const MAX_BATCH: usize = 20;
 pub async fn post_mcp(
     State(state): State<AppState>,
     headers: HeaderMap,
+    access: Option<axum::Extension<AgentAccess>>,
     body: axum::body::Bytes,
 ) -> Response {
+    let opts = titen_mcp::McpOptions {
+        access: access.map(|a| a.0.0).unwrap_or(titen_mcp::Access::Full),
+        // Agents only start the flow; a human finishes it in the admin UI with
+        // the master key / session, so the state is bound to the master key.
+        oauth_caller: match state.api_key.as_deref() {
+            Some(k) if !k.is_empty() => k.to_string(),
+            _ => "dev".to_string(),
+        },
+        redirect_uri: crate::routes::settings::derive_redirect_uri(&headers),
+    };
     // Spec: clients must accept JSON; we only ever reply with JSON.
     if let Some(ct) = headers.get(header::CONTENT_TYPE).and_then(|v| v.to_str().ok()) {
         if !ct.starts_with("application/json") {
@@ -56,7 +67,7 @@ pub async fn post_mcp(
             }
             let mut out = Vec::new();
             for item in &items {
-                if let Some(r) = dispatch(&state, item).await {
+                if let Some(r) = dispatch(&state, item, &opts).await {
                     out.push(r);
                 }
             }
@@ -66,7 +77,7 @@ pub async fn post_mcp(
                 Json(Value::Array(out)).into_response()
             }
         }
-        item @ Value::Object(_) => match dispatch(&state, &item).await {
+        item @ Value::Object(_) => match dispatch(&state, &item, &opts).await {
             Some(r) => Json(r).into_response(),
             None => StatusCode::ACCEPTED.into_response(),
         },
@@ -74,13 +85,13 @@ pub async fn post_mcp(
     }
 }
 
-async fn dispatch(state: &AppState, item: &Value) -> Option<Value> {
+async fn dispatch(state: &AppState, item: &Value, opts: &titen_mcp::McpOptions) -> Option<Value> {
     if !item.is_object() || item.get("method").and_then(|m| m.as_str()).is_none() {
         // Responses/garbage from the client: nothing to answer.
         let id = item.get("id").cloned().unwrap_or(Value::Null);
         return Some(titen_mcp::rpc_error(id, -32600, "Invalid Request"));
     }
-    titen_mcp::handle_message(&state.store, &state.threads_client, item).await
+    titen_mcp::handle_message(&state.store, &state.threads_client, item, opts).await
 }
 
 /// `GET`/`DELETE /api/mcp`: no server-initiated streams and no sessions.

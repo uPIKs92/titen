@@ -270,7 +270,7 @@ pub struct PostFailure {
 }
 
 impl PostFailure {
-    fn new(status: u16, code: &'static str, message: impl Into<String>) -> Self {
+    pub(crate) fn new(status: u16, code: &'static str, message: impl Into<String>) -> Self {
         Self { status, code, message: message.into() }
     }
 }
@@ -394,6 +394,81 @@ pub async fn create_and_publish(
     let db_id = uuid::Uuid::now_v7().to_string();
     store
         .create_post_with_threads_id(&db_id, &input, &threads_post_id, permalink.as_deref())
+        .await
+        .map_err(|e| PostFailure::new(500, "CREATE_FAILED", e.to_string()))
+}
+
+// ─── Schedule creation with the same rules as publishing ───
+
+/// Create a schedule (always starts as a draft needing approval unless
+/// `auto_approve`), rejecting anything the scheduler could not later publish:
+/// bad `scheduled_at`, over-long caption, unknown media type, missing /
+/// non-https / internal media URLs, carousels outside 2–20 items, empty reply
+/// targets. Used by the MCP `schedule_post` tool.
+pub async fn create_schedule_checked(
+    store: &crate::Store,
+    input: crate::models::CreateSchedule,
+) -> std::result::Result<crate::models::Schedule, PostFailure> {
+    for text in [&input.caption, &input.text_attachment].into_iter().flatten() {
+        let n = text.chars().count();
+        if n > 499 {
+            return Err(PostFailure::new(
+                400,
+                "CAPTION_TOO_LONG",
+                format!("Caption exceeds the 499-character limit (got {n}; Threads accepts at most 500)"),
+            ));
+        }
+    }
+    if crate::time::parse_utc(&input.scheduled_at).is_none() {
+        return Err(PostFailure::new(
+            400,
+            "INVALID_SCHEDULED_AT",
+            format!(
+                "scheduled_at must be an ISO 8601 / RFC 3339 timestamp with offset, got: {}",
+                input.scheduled_at
+            ),
+        ));
+    }
+    if let Some(r) = input.reply_to_id.as_deref() {
+        if r.trim().is_empty() {
+            return Err(PostFailure::new(
+                400,
+                "INVALID_REPLY_TO_ID",
+                "reply_to_id must be a non-empty Threads post ID",
+            ));
+        }
+    }
+    store
+        .get_account(&input.account_id)
+        .await
+        .map_err(|e| PostFailure::new(404, "ACCOUNT_NOT_FOUND", e.to_string()))?;
+
+    let media_type = input.media_type.clone().unwrap_or_else(|| "TEXT".to_string());
+    let req = PublishRequest {
+        media_type: media_type.clone(),
+        caption: input.caption.clone(),
+        media_urls: input.media_urls.clone().unwrap_or_default(),
+        ..Default::default()
+    };
+    if media_type == "TEXT" && req.caption.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        return Err(PostFailure::new(400, "EMPTY_POST", "TEXT posts require a non-empty caption"));
+    }
+    if let Err(e) = validate(&req) {
+        let code = match &e {
+            TitenError::InvalidRequest(m) if m.contains("Unsupported media type") => {
+                "UNSUPPORTED_MEDIA_TYPE"
+            }
+            _ if media_type == "CAROUSEL" && !(2..=20).contains(&req.media_urls.len()) => {
+                "INVALID_CAROUSEL_COUNT"
+            }
+            _ => "INVALID_MEDIA_URL",
+        };
+        return Err(PostFailure::new(400, code, e.to_string()));
+    }
+
+    let id = uuid::Uuid::now_v7().to_string();
+    store
+        .create_schedule(&id, &input)
         .await
         .map_err(|e| PostFailure::new(500, "CREATE_FAILED", e.to_string()))
 }

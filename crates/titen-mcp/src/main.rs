@@ -31,6 +31,7 @@ fn main() {
         (store, client)
     });
 
+    let opts = titen_mcp::McpOptions::from_env();
     let mut stdout = io::stdout();
     for line in io::stdin().lock().lines() {
         let Ok(line) = line else { break };
@@ -39,7 +40,7 @@ fn main() {
             continue;
         }
         let response = match serde_json::from_str::<serde_json::Value>(trimmed) {
-            Ok(req) => rt.block_on(titen_mcp::handle_message(&store, &threads_client, &req)),
+            Ok(req) => rt.block_on(titen_mcp::handle_message(&store, &threads_client, &req, &opts)),
             Err(e) => Some(titen_mcp::rpc_error(
                 serde_json::Value::Null,
                 -32700,

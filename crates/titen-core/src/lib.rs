@@ -18,10 +18,12 @@
 //! [`Store`], [`ThreadsClient`], [`TitenScheduler`], [`SentimentEngine`],
 //! [`KeywordEngine`], [`StubEngine`], [`Storage`], [`S3Storage`].
 
+pub mod agent_keys;
 pub mod config;
 pub mod crypto;
 pub mod error;
 pub mod models;
+pub mod oauth_connect;
 pub mod publisher;
 pub mod scheduler;
 pub mod sentiment;

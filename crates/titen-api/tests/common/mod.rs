@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{
     Router,
     body::Body,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
 };
 use serde_json::Value;
 use sqlx::{
@@ -97,6 +97,12 @@ pub fn test_app(state: AppState) -> Router {
             "/api/oauth/authorize-url",
             post(routes::oauth_state::authorize_url),
         )
+        .route(
+            "/api/agent-keys",
+            get(routes::agent_keys::list_keys).post(routes::agent_keys::create_key),
+        )
+        .route("/api/agent-keys/{id}", delete(routes::agent_keys::revoke_key))
+        .route("/api/settings", get(|| async { "{}" }))
         .route(
             "/api/mcp",
             post(routes::mcp::post_mcp)

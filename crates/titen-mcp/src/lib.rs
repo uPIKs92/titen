@@ -42,6 +42,43 @@ const SERVER_INSTRUCTIONS: &str = "Titen manages Threads accounts. Call list_acc
 create_post publishes immediately and delete_post is irreversible; prefer schedule_post for review-first workflows \
 (approve_schedule / reject_schedule gate pending items). Threads captions are limited to 499 characters.";
 
+/// What the caller of an MCP session may do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Access {
+    /// Every tool.
+    Full,
+    /// Only tools annotated read-only; others are hidden and rejected.
+    ReadOnly,
+}
+
+/// Per-session settings supplied by the transport.
+#[derive(Debug, Clone)]
+pub struct McpOptions {
+    pub access: Access,
+    /// Identity OAuth states are bound to (must match who finishes the flow in the web UI).
+    pub oauth_caller: String,
+    /// OAuth redirect URI for `connect_account` (empty → tool reports it can't derive one).
+    pub redirect_uri: String,
+}
+
+impl McpOptions {
+    /// Local/stdio defaults: full access, state bound to `TITEN_API_KEY` (or `dev`).
+    pub fn from_env() -> Self {
+        let key = std::env::var(titen_core::config::ENV_API_KEY).unwrap_or_default();
+        Self {
+            access: Access::Full,
+            oauth_caller: if key.is_empty() { "dev".to_string() } else { key },
+            redirect_uri: titen_core::oauth_connect::configured_redirect_uri(),
+        }
+    }
+}
+
+impl Default for McpOptions {
+    fn default() -> Self {
+        Self::from_env()
+    }
+}
+
 /// Tools that only read state.
 const READ_ONLY_TOOLS: &[&str] = &[
     "list_accounts", "get_user_profile", "get_publishing_limit", "list_schedules",
@@ -58,7 +95,21 @@ const OPEN_WORLD_TOOLS: &[&str] = &[
 ];
 
 pub fn tools_list() -> serde_json::Value {
+    tools_list_for(Access::Full)
+}
+
+/// Tool list visible to a caller with the given access.
+pub fn tools_list_for(access: Access) -> serde_json::Value {
     let mut list = tools_list_raw();
+    if access == Access::ReadOnly {
+        if let Some(tools) = list.get_mut("tools").and_then(|t| t.as_array_mut()) {
+            tools.retain(|t| {
+                t.get("name")
+                    .and_then(|n| n.as_str())
+                    .is_some_and(|n| READ_ONLY_TOOLS.contains(&n))
+            });
+        }
+    }
     if let Some(tools) = list.get_mut("tools").and_then(|t| t.as_array_mut()) {
         for t in tools {
             let name = t.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string();
@@ -123,18 +174,33 @@ fn tools_list_raw() -> serde_json::Value {
                 }
             },
             {
-                "name": "schedule_post",
-                "description": "Schedule a post for future publishing",
+                "name": "connect_account",
+                "description": "Start connecting a Threads account. Returns an authorize_url that a human must open in a browser and approve; Threads then redirects to the Titen web UI which finishes the connection (the account appears in list_accounts). Each account uses its own Threads app: pass app_id + app_secret for a new account, or account_id to reconnect / reuse an existing account's saved app. The URL expires in 10 minutes and is single-use.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "account_id": { "type": "string", "description": "Account ID" },
-                        "caption": { "type": "string", "description": "Post caption" },
-                        "scheduled_at": { "type": "string", "description": "ISO 8601 datetime" },
-                        "media_type": { "type": "string", "description": "Media type (TEXT/IMAGE)" },
-                        "reply_to_id": { "type": "string", "description": "Threads post ID to reply to (TEXT schedules only; publishes as a reply instead of a root post)" }
+                        "app_id": { "type": "string", "description": "Threads app ID (from the Threads API Settings page, not the main Meta app ID)" },
+                        "app_secret": { "type": "string", "description": "Threads app secret. Stored encrypted on the account after the connection completes" },
+                        "account_id": { "type": "string", "description": "Existing account to reconnect, or whose saved Threads app to reuse" }
+                    }
+                }
+            },
+            {
+                "name": "schedule_post",
+                "description": "Schedule a post for future publishing (TEXT, IMAGE, VIDEO or CAROUSEL). New schedules are drafts that need approve_schedule before they publish. Media URLs must be public https URLs.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "account_id": { "type": "string", "description": "Account ID (see list_accounts)" },
+                        "caption": { "type": "string", "maxLength": 499, "description": "Post text. Required for TEXT; optional caption for media posts" },
+                        "scheduled_at": { "type": "string", "description": "ISO 8601 / RFC 3339 datetime with offset, e.g. 2026-12-01T09:00:00+07:00" },
+                        "media_type": { "type": "string", "enum": ["TEXT", "IMAGE", "VIDEO", "CAROUSEL"], "default": "TEXT", "description": "Post type" },
+                        "image_url": { "type": "string", "description": "Public https image URL (IMAGE)" },
+                        "video_url": { "type": "string", "description": "Public https video URL (VIDEO)" },
+                        "media_urls": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 20, "description": "2-20 public https image URLs (CAROUSEL)" },
+                        "reply_to_id": { "type": "string", "description": "Threads post ID to reply to; publishes as a reply instead of a root post (any media type)" }
                     },
-                    "required": ["account_id", "caption", "scheduled_at"]
+                    "required": ["account_id", "scheduled_at"]
                 }
             },
             {
@@ -419,9 +485,18 @@ fn tools_list_raw() -> serde_json::Value {
 pub async fn handle_tool_call(
     store: &Arc<Store>,
     threads_client: &Arc<ThreadsClient>,
+    opts: &McpOptions,
     tool_name: &str,
     args: serde_json::Value,
 ) -> serde_json::Value {
+    if opts.access == Access::ReadOnly && !READ_ONLY_TOOLS.contains(&tool_name) {
+        return json!({
+            "content": [{ "type": "text", "text": format!(
+                "Error: '{tool_name}' is not allowed: this API key is read-only. Use a read-write key to call it. (FORBIDDEN)"
+            ) }],
+            "isError": true
+        });
+    }
     let result = match tool_name {
         "list_accounts" => async {
             match store.list_accounts().await {
@@ -519,70 +594,61 @@ pub async fn handle_tool_call(
             }
         }.await,
         "schedule_post" => async {
-            let account_id = args
-                .get("account_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let caption = args.get("caption").and_then(|v| v.as_str()).unwrap_or("");
-            let scheduled_at = args
-                .get("scheduled_at")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-
-            // #136: Validate caption length against Threads API limit.
-            if caption.chars().count() > 499 {
-                return Ok(json!({
-                    "error": format!(
-                        "Caption exceeds the 499-character limit (got {}; Threads accepts at most 500)",
-                        caption.chars().count()
-                    ),
-                    "code": "CAPTION_TOO_LONG"
-                }));
-            }
-            let media_type = args
-                .get("media_type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("TEXT");
-
-            // #232: optional reply target — TEXT-only, validated like the REST route.
-            let reply_to_id = args
-                .get("reply_to_id")
-                .and_then(|v| v.as_str())
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string());
-            if let Some(ref _r) = reply_to_id {
-                if media_type != "TEXT" {
-                    return Ok(json!({
-                        "error": format!("reply_to_id requires media_type TEXT, got {media_type}"),
-                        "code": "INVALID_REPLY_TO_ID"
-                    }));
-                }
-            }
-
+            let str_arg = |k: &str| args.get(k).and_then(|v| v.as_str()).map(|s| s.to_string());
+            let media_type = str_arg("media_type")
+                .map(|m| m.to_uppercase())
+                .unwrap_or_else(|| "TEXT".to_string());
+            // Accept the per-type convenience fields as well as media_urls.
+            let media_urls: Option<Vec<String>> = match args.get("media_urls").and_then(|v| v.as_array()) {
+                Some(a) => Some(a.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect()),
+                None => match media_type.as_str() {
+                    "IMAGE" => str_arg("image_url").map(|u| vec![u]),
+                    "VIDEO" => str_arg("video_url").map(|u| vec![u]),
+                    _ => None,
+                },
+            };
             let input = titen_core::models::CreateSchedule {
-                account_id: account_id.to_string(),
-                caption: Some(caption.to_string()),
-                media_type: Some(media_type.to_string()),
+                account_id: str_arg("account_id").unwrap_or_default(),
+                caption: str_arg("caption"),
+                media_type: Some(media_type),
                 text_attachment: None,
-                media_urls: args
-                    .get("image_url")
-                    .and_then(|v| v.as_str())
-                    .map(|s| vec![s.to_string()]),
-                scheduled_at: scheduled_at.to_string(),
+                media_urls,
+                scheduled_at: str_arg("scheduled_at").unwrap_or_default(),
                 location_id: None,
                 auto_approve: false,
-                reply_to_id,
+                reply_to_id: str_arg("reply_to_id").map(|r| r.trim().to_string()).filter(|r| !r.is_empty()),
             };
-
-            let id = uuid::Uuid::now_v7().to_string();
-            match store.create_schedule(&id, &input).await {
+            match titen_core::publisher::create_schedule_checked(store, input).await {
                 Ok(schedule) => Ok(json!({
                     "id": schedule.id,
                     "scheduled_at": schedule.scheduled_at,
                     "status": schedule.status,
+                    "media_type": schedule.media_type,
+                    "note": "Draft: call approve_schedule to let it publish at scheduled_at.",
                 })),
-                Err(e) => Err(format!("Failed to create schedule: {e}")),
+                Err(f) => Err(format!("{} ({})", f.message, f.code)),
+            }
+        }.await,
+        "connect_account" => async {
+            let str_arg = |k: &str| args.get(k).and_then(|v| v.as_str()).map(|s| s.to_string());
+            match titen_core::oauth_connect::start_connect(
+                store,
+                &opts.oauth_caller,
+                &opts.redirect_uri,
+                str_arg("app_id"),
+                str_arg("app_secret"),
+                str_arg("account_id"),
+            )
+            .await
+            {
+                Ok(c) => Ok(json!({
+                    "authorize_url": c.authorize_url,
+                    "expires_in": c.expires_in,
+                    "app_id": c.app_id,
+                    "redirect_uri": c.redirect_uri,
+                    "next_step": "Ask the user to open authorize_url in a browser and approve. Titen's web UI completes the connection; then call list_accounts to confirm. The redirect_uri must be whitelisted in the Threads app settings on Meta.",
+                })),
+                Err(f) => Err(format!("{} ({})", f.message, f.code)),
             }
         }.await,
         "list_schedules" => async {
@@ -1565,6 +1631,7 @@ pub async fn handle_message(
     store: &Arc<Store>,
     threads_client: &Arc<ThreadsClient>,
     request: &serde_json::Value,
+    opts: &McpOptions,
 ) -> Option<serde_json::Value> {
     // JSON-RPC notifications carry no "id" and must never get a response.
     let is_notification = request.get("id").is_none();
@@ -1591,7 +1658,7 @@ pub async fn handle_message(
         }
         "ping" => Ok(json!({})),
         m if m.starts_with("notifications/") => Ok(json!(null)),
-        "tools/list" => Ok(tools_list()),
+        "tools/list" => Ok(tools_list_for(opts.access)),
         "tools/call" => match request.pointer("/params/name").and_then(|v| v.as_str()) {
             None => Err((-32602, "Invalid params: missing tool name".to_string())),
             Some(tool_name) => {
@@ -1599,7 +1666,7 @@ pub async fn handle_message(
                     .pointer("/params/arguments")
                     .cloned()
                     .unwrap_or(json!({}));
-                Ok(handle_tool_call(store, threads_client, tool_name, arguments).await)
+                Ok(handle_tool_call(store, threads_client, opts, tool_name, arguments).await)
             }
         },
         _ => Err((-32601, format!("Method not found: {method}"))),
