@@ -10,7 +10,7 @@
 	import type { HealthResponse } from '$lib/types';
 
 	// ── State ──
-	let activeTab = $state<'general' | 'api-keys' | 'danger'>('general');
+	let activeTab = $state<'general' | 'danger'>('general');
 	let saving = $state(false);
 	let loading = $state(false);
 
@@ -21,14 +21,8 @@
 	let scheduleLookaheadHours = $state('24');
 
 	// API keys (masked)
-	let threadsAppId = $state('');
-	let threadsAppSecret = $state('');
-	let secretIsSet = $state(false); // true if backend has a secret stored
-	let showAppId = $state(false);
-	let showAppSecret = $state(false);
 
 	// Track whether user typed a new secret
-	let secretDirty = $state(false);
 
 	// Danger zone
 	let confirmPurgeText = $state('');
@@ -57,10 +51,6 @@
 			autoFetchComments = s.auto_fetch_comments ?? true;
 			commentFetchInterval = s.comment_fetch_interval ?? '30';
 			scheduleLookaheadHours = s.schedule_lookahead_hours ?? '24';
-			threadsAppId = s.threads_app_id ?? '';
-			secretIsSet = s.threads_app_secret_set ?? false;
-			threadsAppSecret = '';
-			secretDirty = false;
 		} catch (e) {
 			if (e instanceof ApiError) {
 				toast(`Failed to load settings: ${e.status}`, 'error');
@@ -81,40 +71,12 @@
 				comment_fetch_interval: commentFetchInterval,
 				schedule_lookahead_hours: scheduleLookaheadHours,
 			});
-			secretIsSet = s.threads_app_secret_set ?? secretIsSet;
 			toast('General settings saved', 'success');
 		} catch (e) {
 			if (e instanceof ApiError) {
 				toast(`Failed to save: ${e.status}`, 'error');
 			} else {
 				toast('Failed to save settings', 'error');
-			}
-		} finally {
-			saving = false;
-		}
-	}
-
-	async function saveApiKeys() {
-		saving = true;
-		try {
-			const payload: Record<string, string> = {};
-			if (threadsAppId) payload.threads_app_id = threadsAppId;
-			// Only send secret if user typed a new one
-			if (secretDirty && threadsAppSecret) {
-				payload.threads_app_secret = threadsAppSecret;
-			}
-			const s = await updateSettings(payload);
-			secretIsSet = s.threads_app_secret_set ?? secretIsSet;
-			threadsAppSecret = '';
-			secretDirty = false;
-			showAppId = false;
-			showAppSecret = false;
-			toast('API keys saved', 'success');
-		} catch (e) {
-			if (e instanceof ApiError) {
-				toast(`Failed to save: ${e.status}`, 'error');
-			} else {
-				toast('Failed to save API keys', 'error');
 			}
 		} finally {
 			saving = false;
@@ -165,7 +127,7 @@
 	}
 </script>
 
-<PageHeader title="Settings" description="Instance configuration and API credentials" />
+<PageHeader title="Settings" description="Instance configuration" />
 
 <Tabs.Root
 	value={activeTab}
@@ -174,8 +136,7 @@
 >
 	<Tabs.List>
 		<Tabs.Trigger value="general">General</Tabs.Trigger>
-		<Tabs.Trigger value="api-keys">API Keys</Tabs.Trigger>
-		<Tabs.Trigger value="danger">Danger Zone</Tabs.Trigger>
+				<Tabs.Trigger value="danger">Danger Zone</Tabs.Trigger>
 	</Tabs.List>
 
 	<!-- ── General ── -->
@@ -267,76 +228,6 @@
 					<p class="form-helper">Click <strong>Refresh</strong> to check system health</p>
 				</div>
 			{/if}
-		</section>
-	</Tabs.Content>
-
-	<!-- ── API Keys ── -->
-	<Tabs.Content value="api-keys">
-		<section class="settings-section">
-			<div class="settings-card settings-card--info">
-				<p class="settings-info-text">
-					Credentials are encrypted at rest (AES-256-GCM) and stored server-side.
-					The App Secret is never exposed to the browser after saving.
-				</p>
-			</div>
-
-			<h2 class="settings-section-title">Threads API</h2>
-			<div class="settings-card">
-				<Field>
-					<FieldLabel for="threads-app-id">App ID</FieldLabel>
-					<div class="input-reveal">
-						<Input
-							id="threads-app-id"
-							class="flex-1"
-							type={showAppId ? 'text' : 'password'}
-							bind:value={threadsAppId}
-							placeholder="Threads App ID"
-						/>
-						<Button variant="ghost" class="reveal-btn" type="button" onclick={() => (showAppId = !showAppId)} aria-label={showAppId ? 'Hide' : 'Show'}>
-							{#if showAppId}
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-							{:else}
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-							{/if}
-					</Button>
-					</div>
-				</Field>
-
-				<Field>
-					<FieldLabel for="threads-app-secret">App Secret</FieldLabel>
-					{#if secretIsSet && !secretDirty}
-					<div class="secret-status">
-						<span class="badge badge--success">✓ Configured</span>
-						<Button variant="ghost" size="sm" type="button" onclick={() => { secretDirty = true; showAppSecret = true; }}>Replace</Button>
-					</div>
-					{:else}
-					<div class="input-reveal">
-						<Input
-							id="threads-app-secret"
-							class="flex-1"
-							type={showAppSecret ? 'text' : 'password'}
-							bind:value={threadsAppSecret}
-							oninput={() => { secretDirty = true; }}
-							placeholder={secretIsSet ? 'Enter new secret to replace' : 'Threads App Secret'}
-							autocomplete="off"
-						/>
-						<Button variant="ghost" class="reveal-btn" type="button" onclick={() => (showAppSecret = !showAppSecret)} aria-label={showAppSecret ? 'Hide' : 'Show'}>
-							{#if showAppSecret}
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1 2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-							{:else}
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-							{/if}
-						</Button>
-					</div>
-					{/if}
-				</Field>
-			</div>
-
-			<div class="settings-actions">
-				<Button variant="default" onclick={saveApiKeys} disabled={saving}>
-					{saving ? 'Saving…' : 'Save API Keys'}
-				</Button>
-			</div>
 		</section>
 	</Tabs.Content>
 

@@ -378,6 +378,8 @@ impl ThreadsClient {
             access_token: Some(new_token.to_string()),
             expires_at: Some(expires_at_str),
             is_active: None,
+            app_id: None,
+            app_secret: None,
         };
 
         let account = self.store.update_account(&account.id, &update).await?;

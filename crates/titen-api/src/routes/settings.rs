@@ -18,7 +18,7 @@ use titen_core::models::{AppSettingsResponse, UpdateAppSettings};
 ///
 /// We never blindly trust the Host header because it can be spoofed by
 /// clients, leading to OAuth redirect-code interception.
-fn derive_redirect_uri(headers: &HeaderMap) -> String {
+pub(crate) fn derive_redirect_uri(headers: &HeaderMap) -> String {
     // 1. Explicit env var — always wins
     if let Ok(env_uri) = std::env::var("TITEN_OAUTH_REDIRECT_URI") {
         if !env_uri.is_empty() {
@@ -179,13 +179,10 @@ pub async fn get_oauth_config(
             let authorize_url = if redirect_uri.is_empty() {
                 None
             } else {
-                settings.threads_app_id.as_ref().map(|app_id| {
-                    format!(
-                        "https://threads.net/oauth/authorize?client_id={}&redirect_uri={}&scope=threads_basic,threads_content_publish,threads_manage_replies,threads_manage_mentions,threads_keyword_search,threads_profile_discovery,threads_share_to_instagram,threads_location_tagging&response_type=code",
-                        urlencode(app_id),
-                        urlencode(&redirect_uri),
-                    )
-                })
+                settings
+                    .threads_app_id
+                    .as_ref()
+                    .map(|app_id| build_authorize_url(app_id, &redirect_uri))
             };
 
             (
@@ -218,8 +215,17 @@ pub async fn get_oauth_config(
     }
 }
 
+/// Threads authorize URL (without `state`) for the given app and redirect URI.
+pub(crate) fn build_authorize_url(app_id: &str, redirect_uri: &str) -> String {
+    format!(
+        "https://threads.net/oauth/authorize?client_id={}&redirect_uri={}&scope=threads_basic,threads_content_publish,threads_manage_replies,threads_manage_mentions,threads_keyword_search,threads_profile_discovery,threads_share_to_instagram,threads_location_tagging&response_type=code",
+        urlencode(app_id),
+        urlencode(redirect_uri),
+    )
+}
+
 /// Minimal percent-encoder for OAuth URL parameters.
-fn urlencode(s: &str) -> String {
+pub(crate) fn urlencode(s: &str) -> String {
     let mut result = String::with_capacity(s.len() * 3);
     for byte in s.bytes() {
         match byte {

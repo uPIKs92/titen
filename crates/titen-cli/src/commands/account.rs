@@ -21,6 +21,18 @@ pub enum AccountAction {
         #[arg(long)]
         expires_at: Option<String>,
     },
+    /// Connect an account via Threads OAuth (no manual token needed).
+    /// Each account uses its own Threads app: pass --app-id/--app-secret, or
+    /// --account to reuse (or reconnect with) an existing account's app.
+    Connect {
+        #[arg(long)]
+        app_id: Option<String>,
+        #[arg(long)]
+        app_secret: Option<String>,
+        /// Existing account id: reconnect it / copy its app credentials
+        #[arg(long)]
+        account: Option<String>,
+    },
     /// Remove an account
     Remove { id: String },
     /// Refresh account token
@@ -56,6 +68,28 @@ pub async fn run(action: AccountAction) -> Result<()> {
             });
             let resp = api.post("/api/accounts", body).await?;
             print_data(&resp);
+        }
+        AccountAction::Connect {
+            app_id,
+            app_secret,
+            account,
+        } => {
+            let body = json!({
+                "app_id": app_id,
+                "app_secret": app_secret,
+                "account_id": account,
+            });
+            let resp = api.post("/api/oauth/authorize-url", body).await?;
+            let data = resp.get("data").cloned().unwrap_or_default();
+            let url = data
+                .get("authorize_url")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
+            println!("Open this URL in your browser and click Authorize:\n\n{url}\n");
+            println!(
+                "Threads redirects to the Titen web UI (/auth/callback), which creates the account. \
+                 Log in there with the same API key if prompted. Link expires in 10 minutes."
+            );
         }
         AccountAction::Remove { id } => {
             let resp = api.delete(&format!("/api/accounts/{id}")).await?;
