@@ -105,7 +105,6 @@
 		<!-- Header -->
 		<div class="detail-header">
 			<h2 class="detail-title">Schedule Detail</h2>
-			<button class="detail-close" onclick={onClose} aria-label="Close">&times;</button>
 		</div>
 
 		<!-- Body -->

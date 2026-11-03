@@ -713,20 +713,6 @@ textarea.form-input {
 	margin: 0;
 }
 
-.detail-close {
-	background: none;
-	border: none;
-	font-size: 1.5rem;
-	cursor: pointer;
-	color: var(--color-muted);
-	padding: 0 var(--space-xs);
-	line-height: 1;
-}
-
-.detail-close:hover {
-	color: var(--color-ink);
-}
-
 .detail-body {
 	padding: var(--space-md);
 	overflow-y: auto;

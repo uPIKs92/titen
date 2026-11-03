@@ -36,6 +36,7 @@
 	<Dialog.Content
 		class="lightbox-content max-h-[92vh] max-w-[92vw] overflow-hidden border-none bg-black/90 p-1 shadow-2xl sm:max-w-[92vw]"
 		aria-describedby={undefined}
+		showCloseButton={false}
 	>
 		{#if url}
 			<img
