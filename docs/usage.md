@@ -408,6 +408,52 @@ titen media delete <id>
 
 Titen ships with an MCP server (`titen-mcp`) for integration with AI tools.
 
+### Remote agents (HTTP) — Hermes, Claude, Cursor, any MCP client
+
+> The web UI shows ready-to-copy config for this under **Settings → Agents (MCP)**, with a live connection test and the tool list.
+
+The API server speaks MCP over Streamable HTTP at `POST /api/mcp`, so agents on
+other hosts or containers need no access to the database file. It uses the same
+tools as `titen-mcp`, the server's own `TITEN_ENCRYPTION_KEY`, and each account's
+saved Threads app.
+
+```json
+{
+  "mcpServers": {
+    "titen": {
+      "url": "https://titen.example.com/api/mcp",
+      "headers": { "X-API-Key": "<TITEN_API_KEY>" }
+    }
+  }
+}
+```
+
+Quick check:
+
+```bash
+curl -s -X POST "$TITEN_URL/api/mcp" \
+  -H "X-API-Key: $TITEN_API_KEY" -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+- Stateless: single or batched (max 20) JSON-RPC requests, JSON responses;
+  notification-only posts return `202`. `GET`/`DELETE` return `405` (no SSE streams).
+- Auth is an API key in `X-API-Key`. Create one **per agent** under
+  **Settings → Agents (MCP) → Agent keys** (`tk_…`, shown once, stored hashed,
+  individually revocable, with a "last used" time). The master `TITEN_API_KEY`
+  still works and has full access. Keep the endpoint behind HTTPS.
+
+  | Key | MCP tools | REST API |
+  |-----|-----------|----------|
+  | **Read-only** | only read-only tools are listed; write tools are refused | `GET` only (not `check-tokens`) |
+  | **Read & write** | all tools, including `create_post`, `schedule_post`, `connect_account` | everything except key/settings management |
+
+  Neither agent scope can manage keys or instance settings. `POST /api/agent-keys`
+  `{"name","scope":"read|write"}`, `GET /api/agent-keys`, `DELETE /api/agent-keys/{id}`
+  are master-key only.
+- Prefer stdio (`titen-mcp`) only when the agent runs on the same machine. If the
+  database holds encrypted tokens, set `TITEN_ENCRYPTION_KEY` for that process too.
+
 ### Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `~/.config/Claude/claude_desktop_config.json` (Linux):
@@ -442,15 +488,16 @@ Add to your MCP settings (`Settings → MCP`):
 }
 ```
 
-### Available MCP Tools (29)
+### Available MCP Tools (30)
 
 | Tool | Description |
 |------|-------------|
 | `list_accounts` | List all Threads accounts managed by titen |
 | `get_user_profile` | Fetch a Threads user's profile from the Threads API |
 | `get_publishing_limit` | Fetch an account's Threads publishing quota (daily post limit, etc.) |
-| `create_post` | Create and publish a Threads post |
-| `schedule_post` | Schedule a post for future publishing |
+| `create_post` | Publish a post to Threads immediately: TEXT, IMAGE, VIDEO or CAROUSEL (`image_urls` or library `media_ids`), optional `reply_to_id`. Validates caption length, https/SSRF-safe media URLs and rate limits |
+| `schedule_post` | Schedule a post (TEXT, IMAGE, VIDEO or CAROUSEL, optional `reply_to_id`). Creates a draft; `approve_schedule` releases it. Same validation as `create_post` |
+| `connect_account` | Start connecting a Threads account: returns an authorize URL a human opens to approve; the web UI completes it. Pass `app_id` + `app_secret`, or `account_id` to reconnect / reuse a saved app |
 | `list_schedules` | List scheduled posts |
 | `cancel_schedule` | Cancel a scheduled post |
 | `refresh_token` | Refresh an account's Threads access token |

@@ -17,6 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 titen-core = { workspace = true }
+titen-mcp = { path = "../titen-mcp" }
 axum = { workspace = true, features = ["multipart"] }
 tower-http = { workspace = true }
 tokio = { workspace = true }
@@ -39,6 +40,7 @@ hex.workspace = true
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }
 titen-core = { workspace = true }
+titen-mcp = { path = "../titen-mcp" }
 sqlx = { workspace = true }
 uuid = { workspace = true }
 serde_json = { workspace = true }

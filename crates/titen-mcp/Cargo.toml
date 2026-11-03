@@ -7,6 +7,10 @@ license.workspace = true
 repository.workspace = true
 description = "MCP server for titen — stdio JSON-RPC interface"
 
+[lib]
+name = "titen_mcp"
+path = "src/lib.rs"
+
 [[bin]]
 name = "titen-mcp"
 path = "src/main.rs"

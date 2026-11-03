@@ -233,18 +233,68 @@ pub async fn api_key_auth(
     // Combine: either header key or session-resolved key
     let provided = header_key.or(cookie_key);
 
+    let unauthorized = || {
+        error_response(
+            StatusCode::UNAUTHORIZED,
+            "UNAUTHORIZED",
+            "Invalid or missing API key",
+        )
+    };
+
     match provided {
         Some(key)
             if subtle::ConstantTimeEq::ct_eq(key.as_bytes(), required_key.as_bytes()).into() =>
         {
             Ok(next.run(req).await)
         }
-        _ => Err(error_response(
-            StatusCode::UNAUTHORIZED,
-            "UNAUTHORIZED",
-            "Invalid or missing API key",
-        )),
+        // Per-agent key (`tk_…`): scoped, revocable.
+        Some(key) if key.starts_with(titen_core::agent_keys::KEY_PREFIX) => {
+            let scope = match state.store.authenticate_agent_key(&key).await {
+                Ok(Some((_, scope))) => scope,
+                _ => return Err(unauthorized()),
+            };
+            let (method, path) = (req.method().clone(), req.uri().path().to_string());
+            if let Err(msg) = agent_may(scope, &method, &path) {
+                return Err(error_response(StatusCode::FORBIDDEN, "FORBIDDEN", msg));
+            }
+            let mut req = req;
+            req.extensions_mut().insert(AgentAccess(match scope {
+                titen_core::agent_keys::KeyScope::Read => titen_mcp::Access::ReadOnly,
+                titen_core::agent_keys::KeyScope::Write => titen_mcp::Access::Full,
+            }));
+            Ok(next.run(req).await)
+        }
+        _ => Err(unauthorized()),
     }
+}
+
+/// Set on requests authenticated with an agent key; read by the MCP route to
+/// filter tools. Absent for the master key / sessions (full access).
+#[derive(Clone, Copy)]
+pub struct AgentAccess(pub titen_mcp::Access);
+
+/// Route policy for agent keys. Both scopes are barred from key management and
+/// instance settings; `read` is limited to GETs (plus MCP, which filters tools
+/// itself) and may not trigger the token-refreshing `check-tokens` GET.
+fn agent_may(
+    scope: titen_core::agent_keys::KeyScope,
+    method: &axum::http::Method,
+    path: &str,
+) -> Result<(), &'static str> {
+    let path = path.trim_end_matches('/');
+    if path.starts_with("/api/agent-keys") || path.starts_with("/api/settings") {
+        return Err("Agent keys cannot manage keys or instance settings");
+    }
+    if scope == titen_core::agent_keys::KeyScope::Read {
+        if path == "/api/mcp" && method == axum::http::Method::POST {
+            return Ok(());
+        }
+        let safe = method == axum::http::Method::GET || method == axum::http::Method::HEAD;
+        if !safe || path.ends_with("/check-tokens") {
+            return Err("This API key is read-only");
+        }
+    }
+    Ok(())
 }
 
 pub async fn serve(
@@ -450,6 +500,17 @@ pub async fn serve(
             get(routes::media::list_media).post(routes::media::upload_media),
         )
         .route("/api/media/{id}", delete(routes::media::delete_media))
+        .route(
+            "/api/agent-keys",
+            get(routes::agent_keys::list_keys).post(routes::agent_keys::create_key),
+        )
+        .route("/api/agent-keys/{id}", delete(routes::agent_keys::revoke_key))
+        .route(
+            "/api/mcp",
+            post(routes::mcp::post_mcp)
+                .get(routes::mcp::method_not_allowed)
+                .delete(routes::mcp::method_not_allowed),
+        )
         .route("/api/oauth/state", post(routes::oauth_state::create_state))
         .route(
             "/api/oauth/authorize-url",

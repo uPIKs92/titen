@@ -173,76 +173,7 @@ pub async fn authorize_url(
     headers: HeaderMap,
     body: Option<Json<AuthorizeUrlRequest>>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let err = |status: StatusCode, code: &str, msg: &str| {
-        (
-            status,
-            Json(serde_json::json!({ "error": msg, "code": code })),
-        )
-    };
     let req = body.map(|Json(r)| r).unwrap_or_default();
-    let non_empty = |v: Option<String>| v.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-
-    let mut app_id = non_empty(req.app_id);
-    let mut app_secret = req.app_secret.filter(|s| !s.is_empty());
-
-    // Inherit from an existing account. A different app_id never inherits that
-    // account's secret (an id/secret pair from two apps can't work).
-    if let Some(account_id) = non_empty(req.account_id) {
-        match state.store.get_account(&account_id).await {
-            Ok(acc) => {
-                let same_app = app_id.is_none() || app_id == acc.app_id;
-                if same_app {
-                    if app_id.is_none() {
-                        app_id = acc.app_id.clone().filter(|v| !v.is_empty());
-                    }
-                    if app_secret.is_none() {
-                        app_secret = acc.app_secret.clone().filter(|v| !v.is_empty());
-                    }
-                }
-            }
-            Err(_) => {
-                return err(
-                    StatusCode::NOT_FOUND,
-                    "ACCOUNT_NOT_FOUND",
-                    "No such account to take Threads app credentials from.",
-                );
-            }
-        }
-    }
-
-    // Legacy fallback: the instance-wide pair, only when nothing else was given.
-    if app_id.is_none() && app_secret.is_none() {
-        if let Ok(settings) = state.store.get_app_settings().await {
-            app_id = settings.threads_app_id.filter(|v| !v.is_empty());
-        }
-        if app_id.is_some() {
-            app_secret = state
-                .store
-                .get_threads_app_secret()
-                .await
-                .ok()
-                .flatten()
-                .filter(|v| !v.is_empty());
-        }
-    }
-
-    let (app_id, app_secret) = match (app_id, app_secret) {
-        (Some(id), Some(secret)) => (id, secret),
-        (None, _) => {
-            return err(
-                StatusCode::BAD_REQUEST,
-                "MISSING_APP_ID",
-                "Threads App ID is required for this account.",
-            );
-        }
-        (Some(_), None) => {
-            return err(
-                StatusCode::BAD_REQUEST,
-                "MISSING_APP_SECRET",
-                "Threads App Secret is required for this account.",
-            );
-        }
-    };
 
     // Server-derived URI (env-configured) wins. The optional body value is only
     // a fallback for when the server can't derive one; Meta still enforces its
@@ -250,38 +181,65 @@ pub async fn authorize_url(
     // caller-supplied redirect_uri.
     let mut redirect_uri = super::settings::derive_redirect_uri(&headers);
     if redirect_uri.is_empty() {
-        redirect_uri = req.redirect_uri.unwrap_or_default();
-    }
-    if redirect_uri.is_empty() {
-        return err(
-            StatusCode::BAD_REQUEST,
-            "MISSING_REDIRECT_URI",
-            "Cannot derive the OAuth redirect URI. Set APP_URL or TITEN_OAUTH_REDIRECT_URI.",
-        );
+        redirect_uri = req.redirect_uri.clone().unwrap_or_default();
     }
 
-    let state_value = match issue_state(&state, &headers, Some((&app_id, &app_secret))).await {
-        Ok(v) => v,
+    let caller = match caller_for_state(&state, &headers).await {
+        Ok(c) => c,
         Err((status, body)) => return (status, Json(body)),
     };
-    let url = format!(
-        "{}&state={}",
-        super::settings::build_authorize_url(&app_id, &redirect_uri),
-        super::settings::urlencode(&state_value)
-    );
 
-    (
-        StatusCode::OK,
-        Json(serde_json::json!({
-            "data": {
-                "authorize_url": url,
-                "state": state_value,
-                "redirect_uri": redirect_uri,
-                "app_id": app_id,
-                "expires_in": STATE_TTL_SECS,
-            }
-        })),
+    match titen_core::oauth_connect::start_connect(
+        &state.store,
+        &caller,
+        &redirect_uri,
+        req.app_id,
+        req.app_secret,
+        req.account_id,
     )
+    .await
+    {
+        Ok(c) => {
+            info!(target: "titen::oauth", "OAUTH_STATE_ISSUED");
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "data": {
+                        "authorize_url": c.authorize_url,
+                        "state": c.state,
+                        "redirect_uri": c.redirect_uri,
+                        "app_id": c.app_id,
+                        "expires_in": c.expires_in,
+                    }
+                })),
+            )
+        }
+        Err(f) => (
+            StatusCode::from_u16(f.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+            Json(serde_json::json!({ "error": f.message, "code": f.code })),
+        ),
+    }
+}
+
+/// Identity the OAuth state is bound to. Agent keys can start the flow, but a
+/// human completes it from the admin UI with the master key / session, so a
+/// state started by an agent key is bound to the master key.
+async fn caller_for_state(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<String, (StatusCode, serde_json::Value)> {
+    let required_key = state.api_key.clone().unwrap_or_default();
+    if required_key.is_empty() {
+        return Ok("dev".to_string());
+    }
+    match caller_key_from_headers(state, headers).await {
+        Some(k) if k.starts_with(titen_core::agent_keys::KEY_PREFIX) => Ok(required_key),
+        Some(k) => Ok(k),
+        None => Err((
+            StatusCode::UNAUTHORIZED,
+            serde_json::json!({ "error": "Invalid or missing API key", "code": "UNAUTHORIZED" }),
+        )),
+    }
 }
 
 /// Consume a state token: validates owner + expiry and deletes it
