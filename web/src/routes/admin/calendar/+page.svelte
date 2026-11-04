@@ -10,7 +10,7 @@
 	import { listSchedules, listAccounts } from '$lib/api';
 	import type { Schedule, Account } from '$lib/types';
 	import { toast } from '$lib/toast.svelte';
-	import { getTimezone } from '$lib/tz';
+	import { getTimezone, DEFAULT_TIMEZONE } from '$lib/tz';
 	import { truncate } from '$lib/format';
 	import Skeleton from '$lib/components/ui/skeleton/skeleton.svelte';
 
@@ -64,7 +64,7 @@
 	}
 
 	// Display timezone (server TZ from /health, cached by root layout; browser TZ fallback)
-	let displayTz = $derived(getTimezone() || Intl.DateTimeFormat().resolvedOptions().timeZone);
+	let displayTz = $derived(getTimezone() || DEFAULT_TIMEZONE);
 
 	/** YYYY-MM-DD key in the display timezone (en-CA formats as ISO-like). */
 	function dayKey(d: Date): string {

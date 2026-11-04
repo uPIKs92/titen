@@ -4,13 +4,26 @@
 
 import { getHealth } from './api';
 
+/** Display timezone: always the browser's, whatever the server's TZ is. */
+export const DEFAULT_TIMEZONE: string = (() => {
+	try {
+		return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+	} catch {
+		return 'UTC';
+	}
+})();
+
+function normalizeTz(_serverTz: string | null | undefined): string {
+	return DEFAULT_TIMEZONE;
+}
+
 let cachedTz: string | null = null;
 let fetchPromise: Promise<string> | null = null;
 
 /**
  * Fetch timezone from backend /health endpoint.
  * Caches the result for subsequent calls.
- * Returns IANA timezone string (e.g. "Asia/Jakarta", "UTC").
+ * Returns IANA timezone string (the browser's timezone).
  */
 export async function fetchTimezone(): Promise<string> {
 	if (cachedTz) return cachedTz;
@@ -18,13 +31,13 @@ export async function fetchTimezone(): Promise<string> {
 
 	fetchPromise = getHealth()
 		.then((h) => {
-			cachedTz = h.timezone || 'UTC';
+			cachedTz = normalizeTz(h.timezone);
 			return cachedTz;
 		})
 		.catch(() => {
 			// Do NOT cache the browser fallback — retry on next call
 			// so the server TZ wins once /health is reachable.
-			return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+			return DEFAULT_TIMEZONE;
 		})
 		.finally(() => {
 			fetchPromise = null;
@@ -53,7 +66,7 @@ export function setTimezone(tz: string): void {
  */
 export function formatDateTime(iso: string, timezone?: string | null): string {
 	const d = new Date(iso);
-	const tz = timezone || cachedTz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const tz = timezone || cachedTz || DEFAULT_TIMEZONE;
 	return d.toLocaleString('en-US', {
 		month: 'short',
 		day: 'numeric',
@@ -69,7 +82,7 @@ export function formatDateTime(iso: string, timezone?: string | null): string {
  */
 export function formatDate(iso: string, timezone?: string | null): string {
 	const d = new Date(iso);
-	const tz = timezone || cachedTz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const tz = timezone || cachedTz || DEFAULT_TIMEZONE;
 	return d.toLocaleDateString('en-US', {
 		month: 'short',
 		day: 'numeric',
@@ -83,7 +96,7 @@ export function formatDate(iso: string, timezone?: string | null): string {
  */
 export function formatDateShort(iso: string, timezone?: string | null): string {
 	const d = new Date(iso);
-	const tz = timezone || cachedTz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const tz = timezone || cachedTz || DEFAULT_TIMEZONE;
 	return d.toLocaleDateString('en-US', {
 		month: 'short',
 		day: 'numeric',
@@ -96,7 +109,7 @@ export function formatDateShort(iso: string, timezone?: string | null): string {
  */
 export function formatDateTimeShort(iso: string, timezone?: string | null): string {
 	const d = new Date(iso);
-	const tz = timezone || cachedTz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const tz = timezone || cachedTz || DEFAULT_TIMEZONE;
 	return d.toLocaleString('en-US', {
 		month: 'short',
 		day: 'numeric',
@@ -112,7 +125,7 @@ export function formatDateTimeShort(iso: string, timezone?: string | null): stri
  */
 export function toDatetimeInput(iso: string, timezone?: string | null): string {
 	const d = new Date(iso);
-	const tz = timezone || cachedTz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const tz = timezone || cachedTz || DEFAULT_TIMEZONE;
 	// Format in target TZ, then extract parts
 	const parts = new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',

@@ -17,7 +17,7 @@ import LogOut from '@lucide/svelte/icons/log-out';
 	import { getToasts } from '$lib/toast.svelte';
 	import { page } from '$app/state';
 	import { verifySession, logout, hasSessionHint, SessionUnreachableError } from '$lib/api';
-	import { fetchTimezone, getTimezone } from '$lib/tz';
+	import { fetchTimezone, getTimezone, DEFAULT_TIMEZONE } from '$lib/tz';
 	import { goto } from '$app/navigation';
 
 	let { children }: { children: import('svelte').Snippet } = $props();
@@ -26,6 +26,32 @@ import LogOut from '@lucide/svelte/icons/log-out';
 	let authed = $state(false);
 	let appVersion = $state('');
 	let tzLabel = $state('');
+	let now = $state(new Date());
+
+	// Live clock in the configured (server) timezone; falls back to the browser's.
+	const clockTz = $derived.by(() => {
+		const tz = tzLabel || DEFAULT_TIMEZONE;
+		try {
+			new Intl.DateTimeFormat('en-GB', { timeZone: tz });
+			return tz;
+		} catch {
+			return DEFAULT_TIMEZONE;
+		}
+	});
+	const clockText = $derived(
+		new Intl.DateTimeFormat('en-GB', {
+			timeZone: clockTz,
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: false,
+		}).format(now)
+	);
+
+	$effect(() => {
+		const id = setInterval(() => (now = new Date()), 1000);
+		return () => clearInterval(id);
+	});
 
 	// Session verification. With a recent-sign-in hint the shell renders at once
 	// and is verified in the background; a slow/unreachable server shows a
@@ -134,10 +160,6 @@ import LogOut from '@lucide/svelte/icons/log-out';
 				<LogOut aria-hidden="true" />
 				<span class="plk-sidebar-text">Sign out</span>
 			</button>
-			<span class="sidebar-meta plk-sidebar-text">
-				{#if appVersion}<span class="sidebar-version">v{appVersion}</span>{/if}
-				{#if tzLabel}<span class="sidebar-tz" title="Times shown in this timezone (server TZ env)"><Clock class="sidebar-clock" aria-hidden="true" /> {tzLabel}</span>{/if}
-			</span>
 		</div>
 	</aside>
 	<div class="plk-sidebar-backdrop"></div>
@@ -150,6 +172,11 @@ import LogOut from '@lucide/svelte/icons/log-out';
 			<hr class="plk-separator" aria-orientation="vertical" />
 			<span class="plk-topbar-title">{navItems.find((n) => isActive(n.href))?.label ?? 'Admin'}</span>
 			<div class="plk-topbar-end">
+				<span class="plk-badge plk-badge--outline tz-clock" title="Times shown in your browser's timezone">
+					<Clock aria-hidden="true" />
+					<time datetime={now.toISOString()}>{clockText}</time>
+					<span class="tz-name">{clockTz}</span>
+				</span>
 				<button class="plk-btn plk-btn--ghost plk-btn--icon plk-btn--sm" type="button" data-plk-theme-toggle aria-label="Toggle dark mode">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
 				</button>
@@ -176,6 +203,10 @@ import LogOut from '@lucide/svelte/icons/log-out';
 				{/if}
 			</div>
 		</main>
+
+		<footer class="plk-statusbar admin-footer">
+			<span class="plk-statusbar-item">Titen{#if appVersion}&nbsp;<span class="admin-version">v{appVersion}</span>{/if}</span>
+		</footer>
 	</div>
 </div>
 
@@ -196,27 +227,33 @@ import LogOut from '@lucide/svelte/icons/log-out';
 </div>
 
 <style>
-	.sidebar-clock {
-		width: 0.75rem;
-		height: 0.75rem;
-	}
-
-	.sidebar-meta {
-		display: flex;
-		gap: var(--space-xs);
-		align-items: center;
-		flex-wrap: wrap;
-		padding-inline: var(--space-xs);
+	.tz-clock {
+		gap: 0.375rem;
 		font-family: var(--plk-font-mono);
-		font-size: var(--text-xs);
-		color: var(--sidebar-foreground);
-		opacity: 0.7;
+		font-variant-numeric: tabular-nums;
 	}
 
-	.sidebar-tz {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
+	.tz-clock :global(svg) {
+		width: 0.875rem;
+		height: 0.875rem;
+	}
+
+	.tz-name {
+		color: var(--muted-foreground);
+	}
+
+	.admin-footer {
+		margin-top: auto;
+	}
+
+	.admin-version {
+		font-family: var(--plk-font-mono);
+	}
+
+	@media (max-width: 30rem) {
+		.tz-name {
+			display: none;
+		}
 	}
 
 	.admin-content {
