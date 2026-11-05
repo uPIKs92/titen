@@ -1182,56 +1182,69 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 
 	.filter-bar {
 		display: flex;
-		flex-direction: column;
-		gap: var(--space-sm);
-	}
-
-	.filter-top {
-		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
 		align-items: flex-end;
 		gap: var(--space-sm);
-		flex-wrap: wrap;
+		padding: var(--space-sm) var(--space-md);
 	}
 
-	.filter-search {
-		flex: 1 1 220px;
+	/* Flatten the two wrappers so every control shares one wrapping row */
+	.filter-top,
+	.filter-fields {
+		display: contents;
+	}
+
+	.filter-bar .plk-field {
+		gap: var(--space-3xs, 0.25rem);
 		min-width: 0;
+		flex: 0 1 9rem;
+	}
+
+	.filter-bar .filter-search {
+		flex: 1 1 10rem;
+	}
+
+	/* Desktop: keep everything on a single line */
+	@media (min-width: 1100px) {
+		.filter-bar {
+			flex-wrap: nowrap;
+		}
+	}
+
+	/* DOM order is search, reset, count, toggle, filters — put filters before the count/toggle */
+	.filter-bar .plk-field { order: 1; }
+	.filter-bar .filter-search { order: 0; }
+	.filter-reset { order: 2; }
+	.filter-count { order: 3; }
+	.view-toggle { order: 4; }
+
+	.filter-bar :global(.select-trigger) {
+		min-width: 0;
+		width: 100%;
 	}
 
 	.filter-reset {
-		margin-bottom: 0.2rem;
-	}
-
-	.filter-fields {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: var(--space-sm);
-	}
-
-	.filter-fields .plk-field {
-		min-width: 0;
+		align-self: flex-end;
 	}
 
 	.filter-count {
 		margin-left: auto;
-		align-self: flex-end;
 		padding-bottom: 0.45rem;
 		font-size: var(--text-xs);
 		color: var(--muted-foreground);
 		white-space: nowrap;
 	}
 
+	.view-toggle {
+		display: flex;
+		gap: 0.25rem;
+	}
+
 	.load-more {
 		display: flex;
 		justify-content: center;
 		padding: var(--space-md) 0 var(--space-xs);
-	}
-
-	.view-toggle {
-		display: flex;
-		gap: 0.25rem;
-		align-self: flex-end;
-		padding-bottom: 0.25rem;
 	}
 
 	.card-grid {
@@ -1372,35 +1385,22 @@ import MediaLightbox from '$lib/components/MediaLightbox.svelte';
 		font-variant-numeric: tabular-nums;
 	}
 
-	.filter-bar .plk-field:first-child {
-		flex: 1 1 16rem;
-	}
-
 	.tz-info {
 		display: flex;
 		align-items: flex-end;
 	}
 
 	@media (max-width: 640px) {
-		.filter-top {
-			flex-wrap: nowrap;
+		.filter-bar .plk-field {
+			flex: 1 1 calc(50% - var(--space-sm));
 		}
 
-		.filter-search {
-			flex: 1 1 auto;
+		.filter-bar .filter-search {
+			flex: 1 1 100%;
 		}
 
 		.filter-count {
 			margin-left: 0;
-			padding-bottom: 0.45rem;
-		}
-
-		.view-toggle {
-			padding-bottom: 0.25rem;
-		}
-
-		.filter-fields {
-			grid-template-columns: repeat(2, 1fr);
 		}
 
 		.view-toggle :global(button) {
